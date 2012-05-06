@@ -1,2 +1,4 @@
 2012-05-04 Finished implementing Command.run(), by using an OrderedDict to store opt_args so we can know which optional args have not been passed.
 
+2012-05-05 Made hello.greet() return a string, rather than print directly to stdout, but still had command-line app display output, using optional output_alg param when creating app.
+

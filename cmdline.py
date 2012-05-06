@@ -127,7 +127,8 @@ class Command(object):
 
     # GRIPE You could argue that __init__ should actually just be from_func.
     # I'm not sure if you'd be right or not.
-    def __init__(self, func, args, opt_args, opts, flags, name=None):
+    def __init__(self, func, args, opt_args, opts, flags, output_alg=None,
+                 name=None):
         """Make a new Command.
 
         func -- callable that does the command's work.
@@ -138,6 +139,8 @@ class Command(object):
         flags -- list of flags for this command. Flags are Booleans with a
             short name and a long name. When set, flags invert their default
             value.
+        output_alg -- callable to generate output from `func`'s return value.
+            Defaults to None, as good *nix programs are silent by default.
         name -- Optional command name. If None, self.name is set by
             replacing '_' with '-' in func.__name__.
 
@@ -149,6 +152,7 @@ class Command(object):
         self.opt_args = opt_args
         self.opts = opts
         self.flags = flags
+        self.output_alg = output_alg
 
     def run(self, inputs):
         """Run this command with `inputs` as our argv array."""
@@ -206,13 +210,18 @@ class Command(object):
             if i >= num_opt_args:
                 args.append(self.opt_args[key].default)
 
-        self.func(*args, **kwargs)
+        result = self.func(*args, **kwargs)
+
+        if self.output_alg is not None:
+            self.output_alg(result)
 
     @classmethod
-    def from_func(cls, func):
+    def from_func(cls, func, output_alg=None):
         """Get an instance of Command by introspecting func.
 
         func -- a callable object.
+        output_alg -- a callable object that processes func's return
+            value and prints any output.
 
         DEBUG This should ignore self/cls parameters. I'm not sure how
         to distinguish between functions and methods, so for now we're
@@ -312,38 +321,44 @@ class Command(object):
 
             opts[arg] = Option(arg, summary, defaults[i])
 
-        return cls(func, args, opt_args, opts, flags)
+        return cls(func, args, opt_args, opts, flags, output_alg)
 
 class App(object):
     """A command-line application."""
 
-    def __init__(self):
+    def __init__(self, output_alg=None):
 
         self.args = []
         self.opts = {}
         self.cmd = None
-        self.func = None
 
+        self.output_alg = output_alg
         self.main_cmd = None
         self.commands = {}
         self.script_name = None
         self.argv = []
 
-    def main(self, func):
+    def main(self, func, output_alg=None):
         """Decorator to make func the main command for this app."""
 
-        cmd = Command.from_func(func)
+        if output_alg is None:
+            output_alg = self.output_alg
+
+        cmd = Command.from_func(func, output_alg)
         self.main_cmd = cmd
 
         return func
 
-    def command(self, func, name=None):
+    def command(self, func, output_alg=None):
         """Decorator to make func an app command."""
+
+        if output_alg is None:
+            output_alg = self.output_alg
 
         # DEBUG It would be faster to only create the Command object when the
         # user actually tries to run that command. Right now I'm incredibly
         # tired and just trying to get this working.
-        cmd = Command.from_func(func)
+        cmd = Command.from_func(func, output_alg)
         self.commands[cmd.name] = cmd
 
         return func
@@ -402,3 +417,14 @@ class App(object):
                 print >> sys.stderr, '%s is not a known command.' % exc.value
         except InvalidInput as exc:
             print >> sys.stderr, 'Invalid input: %s' % exc.input
+
+def print_str(obj):
+    """Basic output algorithm for command-line programs.
+
+    Cast `obj` to a string, then print the result.
+
+    """
+
+    text = str(obj)
+
+    print text

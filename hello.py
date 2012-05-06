@@ -19,14 +19,14 @@ than hardcoded.
 import cmdline
 
 # Set up app for this script.
-app = cmdline.App()
+app = cmdline.App(output_alg=cmdline.print_str)
 
 @app.main
 def greet(greeting='Hello, world', yell=False, punctuation='!'):
-    """Display a simple message to stdout.
+    """Return a simple greeting.
 
     Optional Args:
-    greeting -- the message to output.
+    greeting -- the greeting to use.
 
     Flags:
     yell -- display the message in uppercase.
@@ -42,7 +42,7 @@ def greet(greeting='Hello, world', yell=False, punctuation='!'):
 
     result = greeting + punctuation
 
-    print result
+    return result
 
 if __name__ == '__main__':
     app.run()
