@@ -1,14 +1,10 @@
-2012-05-04 Make hello.greet() return a string, rather than print directly to stdout, but still have command-line app display output. If @app.command accepted an optional formatter that defaulted to string, it might work.
-
-2012-05-04 Support short names for options and flags. @app.command should accept an optional 'shortnames' dict that maps variable names to shortnames.
-
 2012-05-04 Support optional type annotations for function inputs. They should let us cast inputs before passing them to functions and also handle input validation.
 
 2012-05-04 Introspect usage messages for the app and any subcommands.
 
-2012-05-04 Consider making opt_args an optional arg to @app.command, rather than encoding 'Optional Args:' in the docstring. Dropping docstring 'sections' would be part of this.
+2012-05-04 Make opt_args an optional arg to @app.command, rather than encoding 'Optional Args:' in the docstring. Dropping docstring 'sections' would be part of this.
 
-2012-05-04 Handle exceptions properly.
+2012-05-04 Handle exceptions properly. Right now they just print themselves.
 
 2012-05-04 Consider making @app a decorator (cleaner than @app.main?).
 
@@ -17,3 +13,7 @@
 2012-05-04 Support config files.
 
 2012-05-04 Convert DEBUG and GRIPE comments into actions.
+
+2012-05-07 Decide whether multiple options/flags that start with the same letter should automatically cause InvalidShortName exceptions. They currently do and it could be quite surprising.
+
+2012-05-07 Consider fixing '-' option behavior. GNU apps accept multiple short names after a hyphen, if at most the last one requires a value.

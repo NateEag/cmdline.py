@@ -93,6 +93,21 @@ class InvalidFlag(InvalidOption):
         self.name = name
         self.input = value
 
+class InvalidShortName(InvalidInput):
+    """Indicates that two short option names collide.
+
+    self.input -- the command name with the colliding options.
+    self.name -- the short name that's been used more than once.
+    self.opt_one -- the first option to use the short name.
+    self.opt_two -- the second option to use the short name.
+
+    """
+
+    def __init__(self, input, name, opt_one, opt_two):
+        self.input = input
+        self.name = name
+        self.opt_one = opt_one
+        self.opt_two = opt_two
 
 class Arg(object):
     """An argument a command-line app accepts."""
@@ -106,14 +121,11 @@ class Arg(object):
 class Option(object):
     """An option a command-line app accepts."""
 
-    def __init__(self, name, summary, default, shortname=None):
+    def __init__(self, name, summary, default, short_name=None):
         self.name = name
         self.default = default
         self.summary = summary
-
-        # DEBUG This fails if two names collide. How do we deal with that?
-        # Just crash and tell them to resolve it manually?
-        self.shortname = name[0] if shortname is None else shortname
+        self.short_name = name[0] if short_name is None else short_name
 
 class Command(object):
     """A sub-command in a command-line app.
@@ -134,8 +146,8 @@ class Command(object):
         func -- callable that does the command's work.
         args -- list of required positional args for this command.
         opt_args -- list of optional positional args for this command.
-        opts -- list of options for this command. Options map a short name
-            or a long name to a (required) passed value.
+        opts -- list of options for this command. Options map a name to a
+            (required) passed value (with an optional short name).
         flags -- list of flags for this command. Flags are Booleans with a
             short name and a long name. When set, flags invert their default
             value.
@@ -153,6 +165,22 @@ class Command(object):
         self.opts = opts
         self.flags = flags
         self.output_alg = output_alg
+
+        self.short_names = {}
+        for key, value in self.opts.items():
+            if value.short_name in self.short_names:
+                raise InvalidShortName(self.name, value.short_name,
+                                       self.short_names[value.short_name],
+                                       value.name)
+
+            self.short_names[value.short_name] = key
+        for key, value in self.flags.items():
+            if value.short_name in self.short_names:
+                raise InvalidShortName(self.name, value.short_name,
+                                       self.short_names[value.short_name],
+                                       value.name)
+
+            self.short_names[value.short_name] = key
 
     def run(self, inputs):
         """Run this command with `inputs` as our argv array."""
@@ -172,12 +200,18 @@ class Command(object):
                 if '=' in item:
                     # An option and value are both in this item.
                     opt, junk, val = item.partition('=')
+                    if opt in self.short_names:
+                        opt = self.short_names[opt]
+
                     if opt in self.flags:
                         raise InvalidFlag(opt, val)
                 else:
                     # This item is just an option.
                     # DEBUG How do we deal with it when there is no next item?
                     opt = item
+                    if opt in self.short_names:
+                        opt = self.short_names[opt]
+
                     if opt in self.opts:
                         j = i + 1
                         if j >= num_inputs or inputs[j].startswith('-'):
@@ -216,12 +250,13 @@ class Command(object):
             self.output_alg(result)
 
     @classmethod
-    def from_func(cls, func, output_alg=None):
+    def from_func(cls, func, output_alg=None, short_names=None):
         """Get an instance of Command by introspecting func.
 
         func -- a callable object.
-        output_alg -- a callable object that processes func's return
-            value and prints any output.
+        output_alg -- an optional callable that displays output based
+            on func's return value.
+        short_names -- a dict mapping long option names to single letters.
 
         DEBUG This should ignore self/cls parameters. I'm not sure how
         to distinguish between functions and methods, so for now we're
@@ -297,6 +332,12 @@ class Command(object):
         opts = {}
         flags = {}
         for i, arg in enumerate(func_args[num_func_args:]):
+            short_name = None
+            if short_names is not None:
+                tmp = short_names.get(arg)
+                if tmp is not None and len(tmp) == 1:
+                    short_name = tmp
+
             summary = None
             annotation = annotations.get(arg)
             if annotation is not None:
@@ -315,11 +356,11 @@ class Command(object):
 
             if isinstance(defaults[i], bool):
                 # DEBUG Should check whether metadata says this is a flag.
-                flags[arg] = Option(arg, summary, defaults[i])
+                flags[arg] = Option(arg, summary, defaults[i], short_name)
 
                 continue
 
-            opts[arg] = Option(arg, summary, defaults[i])
+            opts[arg] = Option(arg, summary, defaults[i], short_name)
 
         return cls(func, args, opt_args, opts, flags, output_alg)
 
@@ -338,30 +379,133 @@ class App(object):
         self.script_name = None
         self.argv = []
 
-    def main(self, func, output_alg=None):
-        """Decorator to make func the main command for this app."""
+        # Fields that support the main() and command() decorators.
+        # They hold whatever args were passed to the decorators.
+        # GRIPE They also have utterly lousy names. Figure out how to improve
+        # them.
+        self._dec_output_alg = None
+        self._dec_short_names = None
+        self._dec_main_cmd = None
 
-        if output_alg is None:
+    def _cmd_decorator(self, func):
+        """Do the work of decorating func as a command.
+
+        This exists so we can mostly hide the different behavior
+        of decorators with args vs. decorators without args from the end
+        user.
+
+        Really, we just want to avoid having two decorators with
+        virtually identical names for a single purpose. Who really wants
+        to worry about App.command() vs. App.command_args()?
+
+        We achieve this by requiring all args to our decorators to be
+        passed as keyword arguments. That's a little noxious, but I
+        think it's better than having two differently-named decorators
+        for what looks to a user like the same task.
+
+        DEBUG This strategy might be a bad idea. Certainly it's warty.
+        If you have arguments in either direction, please tell me.
+
+        """
+
+        output_alg = self._dec_output_alg
+        if self._dec_output_alg is None:
+            # Use app's default output algorithm.
             output_alg = self.output_alg
 
-        cmd = Command.from_func(func, output_alg)
-        self.main_cmd = cmd
+        short_names = self._dec_short_names
+
+        cmd = Command.from_func(func, output_alg, short_names)
+        if self._dec_main_cmd is True:
+            # This is the main command.
+            self.main_cmd = cmd
+        else:
+            # This is a subcommand.
+            self.commands[cmd.name] = cmd
 
         return func
 
-    def command(self, func, output_alg=None):
-        """Decorator to make func an app command."""
+    def main(self, func=None, output_alg=None, short_names=None):
+        """Decorator to make func the main command for this app.
 
-        if output_alg is None:
-            output_alg = self.output_alg
+        All arguments to it *must* be passed as keyword args, like so:
 
-        # DEBUG It would be faster to only create the Command object when the
-        # user actually tries to run that command. Right now I'm incredibly
-        # tired and just trying to get this working.
-        cmd = Command.from_func(func, output_alg)
-        self.commands[cmd.name] = cmd
+        >>> @app.main(short_names={'foobar': 'o'})
+        >>> def func(foobar='thing'):
+        ...     pass
 
-        return func
+        If you attempt to call it on a function without using keyword
+        args, it will throw an exception.
+
+        This wart is due to a perhaps-ill-conceived attempt to hide the
+        gorier details of how decorators work from the programmer. It
+        seems preferable to having multiple decorators with different
+        names that perform the same task, however.
+
+        """
+
+        default_args_passed = False
+        if output_alg is not None or short_names is not None:
+            default_args_passed = True
+
+        self._dec_output_alg = output_alg
+        self._dec_short_names = short_names
+
+        self._dec_main_cmd = True
+
+        if func is not None and default_args_passed is True:
+            # DEBUG Unclear message.
+            raise Exception('Either pass defaults with explicit keyword '
+                            'names, or pass no args.')
+
+        if default_args_passed is True:
+            # Return a function that will decorate func.
+            return self._cmd_decorator
+        else:
+            # Decorate func and return the result.
+            return self._cmd_decorator(func)
+
+    def command(self, func, output_alg=None, short_names=None):
+        """Decorator to mark func as a command.
+
+        All arguments to it *must* be passed as keyword args, like so:
+
+        >>> @app.command(short_names={'foobar': 'o'})
+        >>> def func(foobar='thing'):
+        ...     pass
+
+        If you attempt to call it on a function without using keyword
+        args, it will throw an exception.
+
+        This wart is due to a perhaps-ill-conceived attempt to hide the
+        gorier details of how decorators work from the programmer. It
+        seems preferable to having multiple decorators with different
+        names that perform the same task, however.
+
+        """
+
+        # GRIPE Most of this footwork is identical to what we do in
+        # App.main(). This should be DRYed up.
+        default_args_passed = False
+        if output_alg is not None or short_names is not None:
+            default_args_passed = True
+
+        self._dec_output_alg = output_alg
+        self._dec_short_names = short_names
+
+        self._dec_main_cmd = False
+
+        if func is not None and default_args_passed is True:
+            # DEBUG Unclear message.
+            raise Exception('Either pass defaults with explicit keyword '
+                            'names, or pass no args.')
+
+        if default_args_passed is True:
+            # Return a function that will decorate func.
+            return self._cmd_decorator
+        else:
+            # Decorate func and return the result.
+            return self._cmd_decorator(func)
 
     def _do_cmd(self, argv):
         """Parse `argv` and run the specified command."""

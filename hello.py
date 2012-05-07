@@ -21,7 +21,9 @@ import cmdline
 # Set up app for this script.
 app = cmdline.App(output_alg=cmdline.print_str)
 
-@app.main
+# The default short name of 'y' for 'yell' is better. We use 'u' only to test
+# the short name override feature.
+@app.main(short_names={'yell': 'u'})
 def greet(greeting='Hello, world', yell=False, punctuation='!'):
     """Return a simple greeting.
 
