@@ -77,7 +77,7 @@ class InvalidOption(InvalidInput):
 
     """
 
-    def __init__(self, name, value):
+    def __init__(self, name, value=None):
         self.name = name
         self.input = value
 
@@ -207,7 +207,6 @@ class Command(object):
                         raise InvalidFlag(opt, val)
                 else:
                     # This item is just an option.
-                    # DEBUG How do we deal with it when there is no next item?
                     opt = item
                     if opt in self.short_names:
                         opt = self.short_names[opt]
@@ -215,7 +214,7 @@ class Command(object):
                     if opt in self.opts:
                         j = i + 1
                         if j >= num_inputs or inputs[j].startswith('-'):
-                            # It requires a value to be passed.
+                            # This is an option and requires a value.
                             raise InvalidOption(opt)
 
                         i += 1
@@ -250,13 +249,15 @@ class Command(object):
             self.output_alg(result)
 
     @classmethod
-    def from_func(cls, func, output_alg=None, short_names=None):
+    def from_func(cls, func, output_alg=None, short_names=None, opt_args=None):
         """Get an instance of Command by introspecting func.
 
         func -- a callable object.
         output_alg -- an optional callable that displays output based
             on func's return value.
         short_names -- a dict mapping long option names to single letters.
+        opt_args -- a list of func's optional params that should be
+            treated as optional command-line args instead of options.
 
         DEBUG This should ignore self/cls parameters. I'm not sure how
         to distinguish between functions and methods, so for now we're
@@ -265,31 +266,15 @@ class Command(object):
 
         """
 
-        # Grab any param annotations from the docstring.
-        # GRIPE There has got to be a less ugly way to do this.
+        # Grab any param summary from the docstring.
         docstr = inspect.getdoc(func)
-        section = None
         cur_name = None
         annotations = {}
         for line in docstr.splitlines():
-            section_chk = line.lower()
-            if section_chk == 'args:':
-                section = 'args'
-                continue
-            elif section_chk == 'optional args:':
-                section = 'opt_args'
-                continue
-            elif section_chk == 'flags:':
-                section = 'flags'
-                continue
-            elif section_chk == 'options:':
-                section = 'opts'
-                continue
-            elif section_chk is not None and section_chk.strip() == '':
-                section = None
-                continue
-
-            if section is None:
+            line_chk = line.lower()
+            if line_chk is not None and line_chk.strip() == '':
+                # Blank line means end of the current name's description.
+                cur_name = None
                 continue
 
             if '--' in line:
@@ -297,7 +282,6 @@ class Command(object):
                 cur_name = name.strip()
                 annotation = {}
                 annotation['summary'] = summary.strip()
-                annotation['section'] = section
 
                 annotations[cur_name] = annotation
             elif cur_name is not None:
@@ -316,19 +300,13 @@ class Command(object):
             summary = None
             annotation = annotations.get(arg)
             if annotation is not None:
-                if annotation['section'] != 'args':
-                    # GRIPE Is this a custom exception type?
-                    raise Exception('%s is a required arg, but is described '
-                                    "as a %s in %s's docstring."
-                                    % (arg, annotation['section'], func_name))
-
                 summary = annotation['summary']
 
             args[i] = Arg(name, summary)
 
         # Build optional arg dict, option dict, and flag dict.
         # (Yes, this is rather ugly.)
-        opt_args = OrderedDict()
+        opt_args_dict = OrderedDict()
         opts = {}
         flags = {}
         for i, arg in enumerate(func_args[num_func_args:]):
@@ -342,27 +320,20 @@ class Command(object):
             annotation = annotations.get(arg)
             if annotation is not None:
                 summary = annotation['summary']
-                if annotation['section'] == 'opt_args':
-                    if isinstance(defaults[i], bool):
-                        # GRIPE Is this a custom exception type?
-                        raise Exception('%s is a flag, but is described as a '
-                                        "%s in %s's docstring."
-                                        % (arg, annotation['section'],
-                                           func_name))
 
-                    opt_args[arg] = Arg(arg, summary, defaults[i])
+            if arg in opt_args:
+                opt_args_dict[arg] = Arg(arg, summary, defaults[i])
 
-                    continue
+                continue
 
             if isinstance(defaults[i], bool):
-                # DEBUG Should check whether metadata says this is a flag.
                 flags[arg] = Option(arg, summary, defaults[i], short_name)
 
                 continue
 
             opts[arg] = Option(arg, summary, defaults[i], short_name)
 
-        return cls(func, args, opt_args, opts, flags, output_alg)
+        return cls(func, args, opt_args_dict, opts, flags, output_alg)
 
 class App(object):
     """A command-line application."""
@@ -385,10 +356,14 @@ class App(object):
         # them.
         self._dec_output_alg = None
         self._dec_short_names = None
+        self._dec_opt_args = None
         self._dec_main_cmd = None
 
     def _cmd_decorator(self, func):
         """Do the work of decorating func as a command.
+
+        Interprets private fields that store any params passed to the
+        actual decorators.
 
         This exists so we can mostly hide the different behavior
         of decorators with args vs. decorators without args from the end
@@ -414,8 +389,9 @@ class App(object):
             output_alg = self.output_alg
 
         short_names = self._dec_short_names
+        opt_args = self._dec_opt_args
 
-        cmd = Command.from_func(func, output_alg, short_names)
+        cmd = Command.from_func(func, output_alg, short_names, opt_args)
         if self._dec_main_cmd is True:
             # This is the main command.
             self.main_cmd = cmd
@@ -423,9 +399,14 @@ class App(object):
             # This is a subcommand.
             self.commands[cmd.name] = cmd
 
+        # Empty state-transfer fields for next call.
+        self._dec_output_alg = None
+        self._dec_short_names = None
+        self._dec_opt_args = None
+
         return func
 
-    def main(self, func=None, output_alg=None, short_names=None):
+    def main(self, func=None, output_alg=None, short_names=None, opt_args=None):
         """Decorator to make func the main command for this app.
 
         All arguments to it *must* be passed as keyword args, like so:
@@ -434,22 +415,35 @@ class App(object):
         >>> def func(foobar='thing'):
         ...     pass
 
-        If you attempt to call it on a function without using keyword
-        args, it will throw an exception.
-
         This wart is due to a perhaps-ill-conceived attempt to hide the
         gorier details of how decorators work from the programmer. It
         seems preferable to having multiple decorators with different
-        names that perform the same task, however.
+        names that perform the same task.
+
+        If you attempt to call it on a function without using keyword
+        args, it will throw an exception.
+
+        N.B.: if you pass a single callable as the only non-keyword arg,
+        it will try to make it a command. That is very undesireable
+        behavior, for which I apologize, but I do not currently see a
+        way to avoid it.
+
+        output_alg -- callable to format func's return value for output.
+        short_names -- dict mapping func's optional arg names to single
+            letters that can be used as short names.
+        opt_args -- list of func's optional params that should be
+            treated as optional command-line args instead of options.
 
         """
 
         default_args_passed = False
-        if output_alg is not None or short_names is not None:
+        if (output_alg is not None or short_names is not None or
+            opt_args is not None):
             default_args_passed = True
 
         self._dec_output_alg = output_alg
         self._dec_short_names = short_names
+        self._dec_opt_args = opt_args
 
         self._dec_main_cmd = True
 
@@ -465,7 +459,7 @@ class App(object):
             # Decorate func and return the result.
             return self._cmd_decorator(func)
 
-    def command(self, func, output_alg=None, short_names=None):
+    def command(self, func, output_alg=None, short_names=None, opt_args=None):
         """Decorator to mark func as a command.
 
         All arguments to it *must* be passed as keyword args, like so:
@@ -482,16 +476,24 @@ class App(object):
         seems preferable to having multiple decorators with different
         names that perform the same task, however.
 
+        output_alg -- callable to format func's return value for output.
+        short_names -- dict mapping func's optional arg names to single
+            letters that can be used as short names.
+        opt_args -- list of func's optional params that should be
+            treated as optional command-line args instead of options.
+
         """
 
         # GRIPE Most of this footwork is identical to what we do in
         # App.main(). This should be DRYed up.
         default_args_passed = False
-        if output_alg is not None or short_names is not None:
+        if (output_alg is not None or short_names is not None or
+            opt_args is not None):
             default_args_passed = True
 
         self._dec_output_alg = output_alg
         self._dec_short_names = short_names
+        self._dec_opt_args = opt_args
 
         self._dec_main_cmd = False
 

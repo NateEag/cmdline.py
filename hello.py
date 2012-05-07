@@ -23,19 +23,13 @@ app = cmdline.App(output_alg=cmdline.print_str)
 
 # The default short name of 'y' for 'yell' is better. We use 'u' only to test
 # the short name override feature.
-@app.main(short_names={'yell': 'u'})
-def greet(greeting='Hello, world', yell=False, punctuation='!'):
+@app.main(opt_args=['greeting'], short_names={'yell': 'u'})
+def greet(greeting='Hello, world', punctuation='!', yell=False):
     """Return a simple greeting.
 
-    Optional Args:
-    greeting -- the greeting to use.
-
-    Flags:
-    yell -- display the message in uppercase.
-
-    Options:
-    punctuation -- punctuation to display at the end of greeting. Defaults to
-        '!'.
+    greeting -- A greeting. Defaults to 'Hello, world'.
+    punctuation -- Post-greeting punctuation. Defaults to '!'.
+    yell -- If True, display the message in all uppercase.
 
     """
 

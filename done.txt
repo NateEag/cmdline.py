@@ -3,3 +3,5 @@
 2012-05-05 Made hello.greet() return a string, rather than print directly to stdout, but still had command-line app display output, using optional output_alg param when creating app.
 
 2012-05-07 Added basic support for option/flag short names.
+
+2012-05-07 Made opt_args an optional arg to @app.command, rather than encoding 'Optional Args:' in the docstring. Dropped docstring 'sections'.
