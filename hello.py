@@ -15,6 +15,9 @@ than hardcoded.
 
 """
 
+# Standard library imports.
+import os
+
 # Local imports.
 import cmdline
 
@@ -23,12 +26,18 @@ app = cmdline.App(output_alg=cmdline.print_str)
 
 # The default short name of 'y' for 'yell' is better. We use 'u' only to test
 # the short name override feature.
-@app.main(opt_args=['greeting'], short_names={'yell': 'u'})
-def greet(greeting='Hello, world', punctuation='!', yell=False):
+@app.main(opt_args=['greeting'],
+          short_names={'yell': 'u'},
+          param_types={'reps': int})
+def greet(greeting='Hello, world', punctuation='!', reps=1, sep=os.linesep,
+          yell=False):
     """Return a simple greeting.
 
     greeting -- A greeting. Defaults to 'Hello, world'.
     punctuation -- Post-greeting punctuation. Defaults to '!'.
+    reps -- number of times the greeting should be repeated.
+    sep -- string to separate repetitions of greeting. Defaults to
+        os.linesep.
     yell -- If True, display the message in all uppercase.
 
     """
@@ -37,6 +46,8 @@ def greet(greeting='Hello, world', punctuation='!', yell=False):
         greeting = greeting.upper()
 
     result = greeting + punctuation
+
+    result = sep.join([result] * reps)
 
     return result
 

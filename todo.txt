@@ -1,10 +1,12 @@
-2012-05-04 Support optional type annotations for function inputs. They should let us cast inputs before passing them to functions and also handle input validation.
+2012-05-04 Handle exceptions properly. Right now they just print a useless message. Note that this is how we'll validate type mappings (catch ValueErrors, or something like them).
 
 2012-05-04 Introspect usage messages for the app and any subcommands. Could involve requirements on docstring formatting and contents.
 
-2012-05-04 Handle exceptions properly. Right now they just print themselves.
+2012-05-04 Consider renaming @app.main to @app (is it cleaner?).
 
-2012-05-04 Consider making @app a decorator (cleaner than @app.main?).
+2012-05-08 Make it possible to set app-wide defaults for param_type and short_names.
+
+2012-05-08 Consider adding a few useful type converters. A Python implementation of approxidate would be nice (and should be its own module): https://github.com/git/git/blob/master/date.c
 
 2012-05-04 Support global options. Functions in the module would read values from them, and they would not be passed to the command in question. Is there a sane way to make module constants work?
 
@@ -12,8 +14,10 @@
 
 2012-05-04 Convert DEBUG and GRIPE comments into actions.
 
+2012-05-08 Consider making this a wrapper around one of the existing optparsing libraries, which could save heavy lifting in building powerful apps. Doing it earlier would have saved more effort, but still worth looking at.
+
 2012-05-07 Decide whether multiple options/flags that start with the same letter should automatically cause InvalidShortName exceptions. They currently do, which could be quite surprising. Maybe 'generate short names' should be some sort of opt-in toggle?
 
 2012-05-07 Consider fixing '-' option behavior. GNU apps accept multiple short names after a hyphen, if at most the last one requires a value.
 
-2012-05-07 Add support for commands that accept *args (and maybe **kwargs?).
+2012-05-07 Consider support for commands that accept *args (maybe **kwargs?).

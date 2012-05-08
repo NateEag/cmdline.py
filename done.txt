@@ -5,3 +5,5 @@
 2012-05-07 Added basic support for option/flag short names.
 
 2012-05-07 Made opt_args an optional arg to @app.command, rather than encoding 'Optional Args:' in the docstring. Dropped docstring 'sections'.
+
+2012-05-08 Added optional type converters for function inputs.
