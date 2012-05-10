@@ -1,16 +1,18 @@
+2012-05-04 Support global options. Functions in the module would read values from them, and they would not be passed to the command in question. You can get module-level variables into the app instance this way (if you add some parsing): app.globals(globals(), types={'name': type_converter}). Question is, "...that *wise*?"
+
+2012-05-04 Introspect basic usage messages for the app and any subcommands. Could involve requirements on docstring formatting and contents for advanced info.
+
 2012-05-04 Handle exceptions properly. Right now they just print a useless message. Note that this is how we'll validate type mappings (catch ValueErrors, or something like them).
 
-2012-05-04 Introspect usage messages for the app and any subcommands. Could involve requirements on docstring formatting and contents.
+2012-05-09 Let Bob, Josh, and Spencer know when the first release is pushed to GitHub.
+
+2012-05-04 Support config files.
 
 2012-05-04 Consider renaming @app.main to @app (is it cleaner?).
 
-2012-05-08 Make it possible to set app-wide defaults for param_type and short_names.
+2012-05-08 Support app defaults for param_type and short_names.
 
 2012-05-08 Consider adding a few useful type converters. A Python implementation of approxidate would be nice (and should be its own module): https://github.com/git/git/blob/master/date.c
-
-2012-05-04 Support global options. Functions in the module would read values from them, and they would not be passed to the command in question. Is there a sane way to make module constants work?
-
-2012-05-04 Support config files.
 
 2012-05-04 Convert DEBUG and GRIPE comments into actions.
 
@@ -18,6 +20,6 @@
 
 2012-05-07 Decide whether multiple options/flags that start with the same letter should automatically cause InvalidShortName exceptions. They currently do, which could be quite surprising. Maybe 'generate short names' should be some sort of opt-in toggle?
 
-2012-05-07 Consider fixing '-' option behavior. GNU apps accept multiple short names after a hyphen, if at most the last one requires a value.
+2012-05-07 Consider fixing '-' option behavior. Many apps accept multiple short names after a hyphen, if at most the last one requires a value.
 
 2012-05-07 Consider support for commands that accept *args (maybe **kwargs?).
