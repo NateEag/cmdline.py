@@ -24,6 +24,13 @@ import cmdline
 # Set up app for this script.
 app = cmdline.App(output_alg=cmdline.print_str)
 
+# Module variables.
+panic = False
+rand_val = 123
+
+# Create global command options from module settings.
+app.make_global_opts(globals(), var_types={'rand_val': int})
+
 # The default short name of 'y' for 'yell' is better. We use 'u' only to test
 # the short name override feature.
 @app.main(opt_args=['greeting'],
@@ -44,6 +51,12 @@ def greet(greeting='Hello, world', punctuation='!', reps=1, sep=os.linesep,
 
     if yell:
         greeting = greeting.upper()
+
+    if panic:
+        greeting += ' -- LOOK OUT'
+
+    if rand_val > 20:
+        print rand_val
 
     result = greeting + punctuation
 

@@ -12,6 +12,7 @@ For now, see hello.py for a simple example.
 # Standard library imports.
 import inspect
 import sys
+import types
 
 # Python 2.7 has OrderedDict; for 2.4 - 2.6, we fall back to an external
 # implementation.
@@ -367,8 +368,6 @@ class App(object):
 
     def __init__(self, output_alg=None):
 
-        self.args = []
-        self.opts = {}
         self.cmd = None
 
         self.output_alg = output_alg
@@ -376,6 +375,14 @@ class App(object):
         self.commands = {}
         self.script_name = None
         self.argv = []
+
+        # Stores the globals dict for whatever module this app was created in.
+        self.module_globals = None
+        # Options that modify the behavior of more than one command.
+        # DEBUG This is only needed to store type mappings, really. Should I
+        # bother with full Option objects?
+        self.global_opts = {}
+        self.global_opt_types = {}
 
         # Fields that support the main() and command() decorators.
         # They hold whatever args were passed to the decorators.
@@ -550,6 +557,28 @@ class App(object):
             # Decorate func and return the result.
             return self._cmd_decorator(func)
 
+    def make_global_opts(self, module_globals, var_types):
+        """Set up our global options from module_globals."""
+
+        self.module_globals = module_globals
+        self.global_opt_types = var_types
+
+        # Store only the module's public global variables as options.
+        # GRIPE This is the step that's likely to go wrong, and is relatively
+        # implicit. Is this actually a good idea? Should we make them explicitly
+        # specify global options by name?
+        for key, value in module_globals.items():
+            if (not hasattr(value, '__call__') and
+                type(value) != types.ClassType and
+                type(value) != types.ModuleType and
+                not isinstance(value, App) and
+                not key.startswith('_')):
+                # This is probably a module-level option.
+                # GRIPE Also, this code is very ugly.
+                name = key.replace('_', '-')
+                opt = Option(name, None, value)
+                self.global_opts[name] = opt
+
     def _do_cmd(self, argv):
         """Parse `argv` and run the specified command."""
 
@@ -557,12 +586,43 @@ class App(object):
         self.script_name = argv[0]
 
         inputs = argv[1:]
+        global_opts = {}
+        for i, item in enumerate(inputs):
+            if item.startswith('-'):
+                item = item.strip('-')
 
-        # DEBUG If a program with subcommands wants to accept general options,
-        # we'd need to handle those here somehow... Maybe we register certain
-        # param names with the app as being global, and therefore not
-        # command-specific, even though they show up in a bunch of functions?
-        # Or maybe they're global vars the functions use?
+                # GRIPE Try applying a similar approach to our other opt
+                # parsing logic. It seems a bit cleaner.
+                opt_name, junk, val = item.partition('=')
+                if opt_name not in self.global_opts:
+                    continue
+
+                opt = self.global_opts[opt_name]
+                inputs.pop(i)
+                if type(opt.default) == types.BooleanType:
+                    # This option is a flag.
+                    if val is not '':
+                        raise InvalidOption(opt_name, value)
+                    val = not opt.default
+                elif val is '':
+                    # There was no '=' - if there's another item in the list,
+                    # that's our value.
+                    if len(inputs) > i:
+                        val = inputs.pop(i)
+                    else:
+                        raise InvalidOption(opt_name)
+
+                # DEBUG Here's where we ought to handle type mappings.
+                var_name = opt_name.replace('-', '_')
+                if var_name in self.global_opt_types:
+                    val = self.global_opt_types[var_name](val)
+
+                global_opts[opt_name] = val
+
+        for opt_name in global_opts:
+            val = global_opts[opt_name]
+            var_name = opt_name.replace('-', '_')
+            self.module_globals[var_name] = global_opts[opt_name]
 
         self.cmd = self.main_cmd
         if len(self.commands) > 0:
@@ -604,6 +664,7 @@ class App(object):
                 print >> sys.stderr, '%s is not a known command.' % exc.value
         except InvalidInput as exc:
             print >> sys.stderr, 'Invalid input: %s' % exc.input
+            raise
 
 def print_str(obj):
     """Basic output algorithm for command-line programs.

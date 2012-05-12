@@ -1,4 +1,4 @@
-2012-05-04 Support global options. Functions in the module would read values from them, and they would not be passed to the command in question. You can get module-level variables into the app instance this way (if you add some parsing): app.globals(globals(), types={'name': type_converter}). Question is, "...that *wise*?"
+2012-05-15 Consider adding an @app.flag decorator. This would let us support weird flags like '--version' and '--help', which traditionally make an app bail out early and ignore all other inputs.
 
 2012-05-04 Introspect basic usage messages for the app and any subcommands. Could involve requirements on docstring formatting and contents for advanced info.
 
@@ -6,11 +6,15 @@
 
 2012-05-09 Let Bob, Josh, and Spencer know when the first release is pushed to GitHub.
 
+2012-05-16 See if there's a cleaner/more flexible way to support global options. My current approach feels clunky - maybe I shouldn't be assuming we'll only be passed globals()?
+
 2012-05-04 Support config files.
 
 2012-05-04 Consider renaming @app.main to @app (is it cleaner?).
 
 2012-05-08 Support app defaults for param_type and short_names.
+
+2012-05-12 Consider storing param_type functions directly in the Option and Arg classes. It might clear things up a bit.
 
 2012-05-08 Consider adding a few useful type converters. A Python implementation of approxidate would be nice (and should be its own module): https://github.com/git/git/blob/master/date.c
 
