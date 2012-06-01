@@ -1,8 +1,8 @@
+2012-05-04 Introspect basic usage messages for the app and any subcommands. Could involve requirements on docstring formatting and contents for advanced info - consider converting ' [Rr]eturn(s{0,1}) ' to ' [Oo]utput\1 ' in docstrings by default.
+
+2012-05-04 Handle exceptions properly. Right now they just print a useless message. They should explain the error and give a usage hint (multi-command programs should be smart about whether a valid command was used). Note that this is how we'll validate type mappings (catch ValueErrors, or some subclass thereof).
+
 2012-05-15 Consider adding an @app.flag decorator. This would let us support weird flags like '--version' and '--help', which traditionally make an app bail out early and ignore all other inputs.
-
-2012-05-04 Introspect basic usage messages for the app and any subcommands. Could involve requirements on docstring formatting and contents for advanced info.
-
-2012-05-04 Handle exceptions properly. Right now they just print a useless message. Note that this is how we'll validate type mappings (catch ValueErrors, or something like them).
 
 2012-05-09 Let Bob, Josh, and Spencer know when the first release is pushed to GitHub.
 
