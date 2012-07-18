@@ -249,7 +249,8 @@ class Command(object):
                     opt_arg_idx += 1
                     cur_arg = self.opt_args[opt_arg_name]
 
-                if cur_arg.name in self.param_types:
+                if (self.param_types is not None and
+                    cur_arg.name in self.param_types):
                     item = self.param_types[cur_arg.name](item)
 
                 args.append(item)
@@ -329,7 +330,7 @@ class Command(object):
             if annotation is not None:
                 summary = annotation['summary']
 
-            args[i] = Arg(name, summary)
+            args[i] = Arg(arg, summary)
 
         # Build optional arg dict, option dict, and flag dict.
         # (Yes, this is rather ugly.)
