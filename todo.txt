@@ -1,8 +1,20 @@
-2012-05-04 Introspect basic usage messages for the app and any subcommands. Could involve requirements on docstring formatting and contents for advanced info - consider converting ' [Rr]eturn(s{0,1}) ' to ' [Oo]utput\1 ' in docstrings by default.
+2012-08-22 Make '--help' as a global option not be interpreted as a command. Is this a special case, or does it show that my global option handling sucks?
 
-2012-05-04 Handle exceptions properly. Right now they just print a useless message. They should explain the error and give a usage hint (multi-command programs should be smart about whether a valid command was used). Note that this is how we'll validate type mappings (catch ValueErrors, or some subclass thereof).
+2012-08-22 Add a semi-sane parser for docstrings, so that usage messages with multiple paragraphs work, and different styles of param docs can be used.
+
+2012-08-22 Add info on args, options, and flags to usage message.
+
+2012-08-22 Try to format usage message for device it's being displayed on (i.e., try to detect terminal width).
+
+2012-05-04 Introspect basic usage messages for the app and any subcommands. Could involve requirements on docstring formatting and contents for advanced info - consider converting ' [Rr]eturn(s{0,1}) ' to ' [Oo]utput\1 ' in docstrings, as that's what will happen.
+
+2012-08-22 Think about impedance mismatch between using func docstrings as usage messages and PEP 8's statement that a module's docstring should be usable as a usage statement, if the module can be run on the command line. If we support a usage statement override, that could solve the problem (but the burden is still on users to do it right).
+
+2012-05-04 Handle exceptions properly. Right now they just print a useless message. They should explain the error and give a usage hint (multi-command programs should be smart about whether a valid command was used). Note that this is how we'll validate type mappings (catch ValueErrors, or some subclass thereof). This should include handling an invalid number of args correctly.
 
 2012-05-15 Consider adding an @app.flag decorator. This would let us support weird flags like '--version' and '--help', which traditionally make an app bail out early and ignore all other inputs.
+
+2012-08-22 Consider opt-in support for "help" as the first input displaying the usage message.
 
 2012-05-09 Let Bob, Josh, and Spencer know when the first release is pushed to GitHub.
 

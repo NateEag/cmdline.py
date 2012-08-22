@@ -141,7 +141,7 @@ class Command(object):
     # GRIPE You could argue that __init__ should actually just be from_func.
     # I'm not sure if you'd be right or not.
     def __init__(self, func, args, opt_args, opts, flags, output_alg=None,
-                 param_types=None, name=None):
+                 param_types=None, usage_msg=None, name=None):
         """Make a new Command.
 
         func -- callable that does the command's work.
@@ -152,11 +152,13 @@ class Command(object):
         flags -- list of flags for this command. Flags are Booleans with a
             short name and a long name. When set, flags invert their default
             value.
-        output_alg -- callable to generate output from `func`'s return value.
+        output_alg -- callable to display `func`'s return value.
             Defaults to None, as good *nix programs are silent by default.
-        param_types -- dict mapping optional param names to callables
+        param_types -- optional dict mapping param names to callables
             that take a string as input and return an object of the
             desired type (or raise a ValueError).
+        usage_msg -- Optional string explaining the command. Defaults to
+            None.
         name -- Optional command name. If None, self.name is set by
             replacing '_' with '-' in func.__name__.
 
@@ -170,6 +172,7 @@ class Command(object):
         self.flags = flags
         self.output_alg = output_alg
         self.param_types = param_types
+        self.usage_msg = usage_msg
 
         self.short_names = {}
         for key, value in self.opts.items():
@@ -186,6 +189,34 @@ class Command(object):
                                        value.name)
 
             self.short_names[value.short_name] = key
+
+    def _get_usage_str(self, width=80):
+        """Return a usage string formatted to `width` chars.
+
+        width -- max # of chars in a line.
+
+        """
+
+        # DEBUG Implement this.
+        # Before we can, we'll have to add some decent docstring parsing.
+        pass
+
+    def _display_usage_msg(self, stream=None):
+        """Print a basic usage message.
+
+        stream -- optional file-like output stream. Default is stdout.
+
+        """
+
+        print self.usage_msg
+        # DEBUG Implement this. Possible logic follows in comments.
+
+        # Set stream if it was not passed.
+
+        # Figure out how many chars wide the device we're displaying to is.
+        # Default to 80 if none are found?
+
+        # Get a help string formatted to needed width and add it to stream.
 
     def run(self, inputs):
         """Run this command with `inputs` as our argv array."""
@@ -230,7 +261,14 @@ class Command(object):
                         i += 1
                         val = inputs[i]
 
-                if opt in self.flags:
+                if opt == 'help' or opt == 'h':
+                    # "help" is a special-case option - all cmds use it to
+                    # output a help message.
+                    # DEBUG This behavior should be overrideable. How do I make
+                    # that possible?
+                    self._display_usage_msg()
+                    return
+                elif opt in self.flags:
                     val = not self.flags[opt].default
                 elif opt not in self.opts:
                     raise UnknownOption(opt)
@@ -269,7 +307,7 @@ class Command(object):
 
         result = self.func(*args, **kwargs)
 
-        if self.output_alg is not None:
+        if self.output_alg is not None and result is not None:
             self.output_alg(result)
 
     @classmethod
@@ -295,8 +333,12 @@ class Command(object):
         """
 
         # Grab any param summary from the docstring.
+        # DEBUG This would break under a whole lot of circumstances. It'll work
+        # for getting a prototype up, but an actual docstring parser would be a
+        # great thing to have here. Someone must have written one...
         docstr = inspect.getdoc(func)
         cur_name = None
+        func_summary = ''
         annotations = {}
         for line in docstr.splitlines():
             line_chk = line.lower()
@@ -314,6 +356,17 @@ class Command(object):
                 annotations[cur_name] = annotation
             elif cur_name is not None:
                 annotations[cur_name]['summary'] += ' ' + line.strip()
+            elif cur_name is None:
+                line = line.strip()
+                if line == '':
+                    # This was a blank line.
+                    # DEBUG This cannot happen given our detection of the
+                    # param description section.
+                    func_summary += '\n'
+                else:
+                    # Replace whitespace with a single space.
+                    func_summary += ' ' + line.strip()
+        func_summary = func_summary.strip()
 
         # Inspect func for hard data.
         func_args, varargs, varkw, defaults = inspect.getargspec(func)
@@ -362,7 +415,7 @@ class Command(object):
             opts[arg] = Option(arg, summary, defaults[i], short_name)
 
         return cls(func, args, opt_args_dict, opts, flags, output_alg,
-                   param_types)
+                   param_types, func_summary)
 
 class App(object):
     """A command-line application."""
@@ -628,23 +681,27 @@ class App(object):
         self.cmd = self.main_cmd
         if len(self.commands) > 0:
             # This program uses subcommands, so the first command must be one.
-            # GRIPE Is that necessarily true? Git behaves that way, but a main
+            # DEBUG Is that necessarily true? Git behaves that way, but a main
             # command with optional subcommands might be conceivable, mightn't
             # it? Bob points out that it probably isn't - subcommands break
-            # badly. This means @command and @main should throw an exception if
-            # such a setup is detected.
-            if len(args) < 1:
+            # badly, since you can't tell the difference between input that
+            # matches a command name and an attempt to invoke the command. This
+            # means @command and @main should throw an exception if such a
+            # setup is detected. Unless there's a sane way to escape such input.
+            if len(inputs) < 1:
                 raise UnknownCommand()
 
-            self.cmd = self.commands.get(arg[0])
-            args = args[1:]
+            self.cmd = self.commands.get(inputs[0])
+            args = inputs[1:]
 
             if self.cmd is None:
                 # GRIPE There should be more advanced error handling here.
                 # Like printing a usage message if one is defined.
-                raise UnknownCommand(self.cmd)
+                raise UnknownCommand(inputs[0])
+        else:
+            args = inputs
 
-        self.cmd.run(inputs)
+        self.cmd.run(args)
 
     def run(self, argv=None):
         """Run this app with argv as command-line input.
@@ -659,10 +716,10 @@ class App(object):
         try:
             self._do_cmd(argv)
         except UnknownCommand as exc:
-            if exc.cmd is None:
+            if exc.input is None:
                 print >> sys.stderr, 'You must enter a command.'
             else:
-                print >> sys.stderr, '%s is not a known command.' % exc.value
+                print >> sys.stderr, "'%s' is not a known command." % exc.input
         except InvalidInput as exc:
             print >> sys.stderr, 'Invalid input: %s' % exc.input
             raise
