@@ -261,14 +261,7 @@ class Command(object):
                         i += 1
                         val = inputs[i]
 
-                if opt == 'help' or opt == 'h':
-                    # "help" is a special-case option - all cmds use it to
-                    # output a help message.
-                    # DEBUG This behavior should be overrideable. How do I make
-                    # that possible?
-                    self._display_usage_msg()
-                    return
-                elif opt in self.flags:
+                if opt in self.flags:
                     val = not self.flags[opt].default
                 elif opt not in self.opts:
                     raise UnknownOption(opt)
@@ -641,6 +634,7 @@ class App(object):
 
         inputs = argv[1:]
         global_opts = {}
+        show_help = False
         for i, item in enumerate(inputs):
             if item.startswith('-'):
                 item = item.strip('-')
@@ -648,6 +642,14 @@ class App(object):
                 # GRIPE Try applying a similar approach to our other opt
                 # parsing logic. It seems a bit cleaner.
                 opt_name, junk, val = item.partition('=')
+                # DEBUG Coders may want to use 'h' for opts other than 'help'.
+                if opt_name == 'help' or opt_name == 'h':
+                    show_help = True
+                    # Throw out the 'help' option - it's always treated as
+                    # global, and we don't want to actually pass it to a
+                    # command.
+                    inputs.pop(i)
+                    continue
                 if opt_name not in self.global_opts:
                     continue
 
@@ -678,30 +680,42 @@ class App(object):
             var_name = opt_name.replace('-', '_')
             self.module_globals[var_name] = global_opts[opt_name]
 
+        if len(inputs) > 0 and inputs[0] == 'help':
+            # We should show help instead of running a command.
+            show_help = True
+            inputs.pop(0)
+
         self.cmd = self.main_cmd
         if len(self.commands) > 0:
             # This program uses subcommands, so the first command must be one.
-            # DEBUG Is that necessarily true? Git behaves that way, but a main
-            # command with optional subcommands might be conceivable, mightn't
-            # it? Bob points out that it probably isn't - subcommands break
-            # badly, since you can't tell the difference between input that
-            # matches a command name and an attempt to invoke the command. This
-            # means @command and @main should throw an exception if such a
-            # setup is detected. Unless there's a sane way to escape such input.
-            if len(inputs) < 1:
+
+            # DEBUG Should an App with a self.main_cmd be allowed to have
+            # subcommands? Bob points out that it probably shouldn't -
+            # subcommands break badly, since you can't tell the difference
+            # between input that matches a command name and an attempt to
+            # invoke the command. This means @command and @main should throw an
+            # exception if such a setup is detected. Unless there's a sane way
+            # to escape inputs matching command names.
+            if (self.main_cmd is None and len(self.commands) < 1 and
+                len(inputs) < 1):
                 raise UnknownCommand()
 
-            self.cmd = self.commands.get(inputs[0])
+            if len(inputs) > 0:
+                self.cmd = self.commands.get(inputs[0])
+
             args = inputs[1:]
 
-            if self.cmd is None:
+            if self.cmd is None and show_help is False:
                 # GRIPE There should be more advanced error handling here.
                 # Like printing a usage message if one is defined.
                 raise UnknownCommand(inputs[0])
         else:
             args = inputs
 
-        self.cmd.run(args)
+        if show_help == True:
+            self.cmd._display_usage_msg()
+        else:
+            self.cmd.run(args)
 
     def run(self, argv=None):
         """Run this app with argv as command-line input.

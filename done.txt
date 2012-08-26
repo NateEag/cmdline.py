@@ -9,3 +9,5 @@
 2012-05-08 Added optional type converters for function inputs.
 
 2012-05-04 Supported global options, via the somewhat-clunky make_global_opts.
+
+2012-08-26 Made the App catch --help/-h and 'help' (command), rather than having Commands do it.
