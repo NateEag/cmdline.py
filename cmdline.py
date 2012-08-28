@@ -686,6 +686,7 @@ class App(object):
             inputs.pop(0)
 
         self.cmd = self.main_cmd
+        cmd_name = None
         if len(self.commands) > 0:
             # This program uses subcommands, so the first command must be one.
 
@@ -701,19 +702,24 @@ class App(object):
                 raise UnknownCommand()
 
             if len(inputs) > 0:
-                self.cmd = self.commands.get(inputs[0])
+                cmd_name = inputs[0]
+                self.cmd = self.commands.get(cmd_name)
 
             args = inputs[1:]
 
-            if self.cmd is None and show_help is False:
+            if self.cmd is None and cmd_name is not None:
                 # GRIPE There should be more advanced error handling here.
                 # Like printing a usage message if one is defined.
-                raise UnknownCommand(inputs[0])
+                raise UnknownCommand(cmd_name)
         else:
             args = inputs
 
         if show_help == True:
-            self.cmd._display_usage_msg()
+            if self.cmd is not None:
+                # STUB Fill this in.
+                self._display_usage_msg()
+            elif cmd_name:
+                self.cmd._display_usage_msg()
         else:
             self.cmd.run(args)
 
