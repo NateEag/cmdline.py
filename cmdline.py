@@ -174,6 +174,14 @@ class Command(object):
         self.param_types = param_types
         self.usage_msg = usage_msg
 
+        summary = None
+        if usage_msg is not None:
+            summary = self.usage_msg
+            end_idx = summary.find('. ')
+            if end_idx > 0:
+                summary = summary[0:end_idx + 1]
+        self.summary = summary
+
         self.short_names = {}
         for key, value in self.opts.items():
             if value.short_name in self.short_names:
@@ -207,6 +215,9 @@ class Command(object):
         stream -- optional file-like output stream. Default is stdout.
 
         """
+
+        if stream is None:
+            stream = sys.stdout
 
         print self.usage_msg
         # DEBUG Implement this. Possible logic follows in comments.
@@ -305,7 +316,7 @@ class Command(object):
 
     @classmethod
     def from_func(cls, func, output_alg=None, short_names=None, opt_args=None,
-                  param_types=None):
+                  param_types=None, usage_msg=None):
         """Get an instance of Command by introspecting func.
 
         func -- a callable object.
@@ -317,6 +328,8 @@ class Command(object):
         param_types -- dict mapping optional param names to callables
             that take a string as input and return an object of the
             desired type (or raise a ValueError).
+        usage_msg -- an optional string explaining the command. Defaults
+            to func's docstring.
 
         DEBUG This should ignore self/cls parameters. I'm not sure how
         to distinguish between functions and methods, so for now we're
@@ -325,41 +338,47 @@ class Command(object):
 
         """
 
+        if opt_args is None:
+            # GRIPE It might be better to go through and make default
+            # opt_args an empty list everywhere.
+            opt_args = []
+
         # Grab any param summary from the docstring.
         # DEBUG This would break under a whole lot of circumstances. It'll work
         # for getting a prototype up, but an actual docstring parser would be a
         # great thing to have here. Someone must have written one...
         docstr = inspect.getdoc(func)
         cur_name = None
-        func_summary = ''
         annotations = {}
-        for line in docstr.splitlines():
-            line_chk = line.lower()
-            if line_chk is not None and line_chk.strip() == '':
-                # Blank line means end of the current name's description.
-                cur_name = None
-                continue
+        if docstr is not None and usage_msg is None:
+            usage_msg = ''
+            for line in docstr.splitlines():
+                line_chk = line.lower()
+                if line_chk is not None and line_chk.strip() == '':
+                    # Blank line means end of the current name's description.
+                    cur_name = None
+                    continue
 
-            if '--' in line:
-                name, junk, summary = line.partition('--')
-                cur_name = name.strip()
-                annotation = {}
-                annotation['summary'] = summary.strip()
+                if '--' in line:
+                    name, junk, summary = line.partition('--')
+                    cur_name = name.strip()
+                    annotation = {}
+                    annotation['summary'] = summary.strip()
 
-                annotations[cur_name] = annotation
-            elif cur_name is not None:
-                annotations[cur_name]['summary'] += ' ' + line.strip()
-            elif cur_name is None:
-                line = line.strip()
-                if line == '':
-                    # This was a blank line.
-                    # DEBUG This cannot happen given our detection of the
-                    # param description section.
-                    func_summary += '\n'
-                else:
-                    # Replace whitespace with a single space.
-                    func_summary += ' ' + line.strip()
-        func_summary = func_summary.strip()
+                    annotations[cur_name] = annotation
+                elif cur_name is not None:
+                    annotations[cur_name]['summary'] += ' ' + line.strip()
+                elif cur_name is None:
+                    line = line.strip()
+                    if line == '':
+                        # This was a blank line.
+                        # DEBUG This cannot happen given our detection of the
+                        # param description section.
+                        usage_msg += '\n'
+                    else:
+                        # Replace whitespace with a single space.
+                        usage_msg += ' ' + line.strip()
+            usage_msg = usage_msg.strip()
 
         # Inspect func for hard data.
         func_args, varargs, varkw, defaults = inspect.getargspec(func)
@@ -408,12 +427,19 @@ class Command(object):
             opts[arg] = Option(arg, summary, defaults[i], short_name)
 
         return cls(func, args, opt_args_dict, opts, flags, output_alg,
-                   param_types, func_summary)
+                   param_types, usage_msg)
 
 class App(object):
     """A command-line application."""
 
-    def __init__(self, output_alg=None):
+    def __init__(self, usage_msg=None, output_alg=None):
+        """Create an App.
+
+        usage_msg -- optional string explaining this App to an end-user.
+            PEP 257 says docstrings should be usable as a command-line
+            module's usage statement, so this is usually __doc__.
+
+        """
 
         self.cmd = None
 
@@ -422,6 +448,7 @@ class App(object):
         self.commands = {}
         self.script_name = None
         self.argv = []
+        self.usage_msg = usage_msg if usage_msg is None else usage_msg.strip()
 
         # Stores the globals dict for whatever module this app was created in.
         self.module_globals = None
@@ -433,13 +460,16 @@ class App(object):
 
         # Fields that support the main() and command() decorators.
         # They hold whatever args were passed to the decorators.
-        # GRIPE They also have utterly lousy names. Figure out how to improve
-        # them.
+
+        # GRIPE They also have utterly lousy names. '_dec' stands for
+        # 'decorator', but I keep forgetting that. Find a better one. Or put
+        # these in a single dict, which would probably be simpler.
         self._dec_output_alg = None
         self._dec_short_names = None
         self._dec_opt_args = None
         self._dec_main_cmd = None
         self._dec_param_types = None
+        self._dec_usage_msg = None
 
     def _cmd_decorator(self, func):
         """Do the work of decorating func as a command.
@@ -473,9 +503,10 @@ class App(object):
         short_names = self._dec_short_names
         opt_args = self._dec_opt_args
         param_types = self._dec_param_types
+        usage_msg = self._dec_usage_msg
 
         cmd = Command.from_func(func, output_alg, short_names, opt_args,
-                                param_types)
+                                param_types, usage_msg)
         if self._dec_main_cmd is True:
             # This is the main command.
             self.main_cmd = cmd
@@ -488,11 +519,12 @@ class App(object):
         self._dec_short_names = None
         self._dec_opt_args = None
         self._dec_param_types = None
+        self._dec_usage_msg = None
 
         return func
 
-    def main(self, func=None, output_alg=None, short_names=None, opt_args=None,
-             param_types=None):
+    def main(self, func=None, output_alg=None, short_names=None,
+             opt_args=None, param_types=None):
         """Decorator to make func the main command for this app.
 
         All arguments to it *must* be passed as keyword args, like so:
@@ -549,8 +581,8 @@ class App(object):
             # Decorate func and return the result.
             return self._cmd_decorator(func)
 
-    def command(self, func, output_alg=None, short_names=None, opt_args=None,
-                param_types=None):
+    def command(self, func=None, output_alg=None, short_names=None,
+                opt_args=None, param_types=None, usage_msg=None):
         """Decorator to mark func as a command.
 
         All arguments to it *must* be passed as keyword args, like so:
@@ -575,20 +607,24 @@ class App(object):
         param_types -- dict mapping optional param names to callables
             that take a string as input and return an object of the
             desired type (or raise a ValueError).
+        usage_msg -- explanation of how to use the command. Defaults
+                     to parsing func's docstring.
 
         """
 
         # GRIPE Most of this footwork is identical to what we do in
         # App.main(). This should be DRYed up.
         default_args_passed = False
-        if (output_alg is not None or short_names is not None or
-            opt_args is not None or param_types is not None):
+        if (usage_msg is not None or output_alg is not None or
+            short_names is not None or opt_args is not None or
+            param_types is not None):
             default_args_passed = True
 
         self._dec_output_alg = output_alg
         self._dec_short_names = short_names
         self._dec_opt_args = opt_args
         self._dec_param_types = param_types
+        self._dec_usage_msg = usage_msg
 
         self._dec_main_cmd = False
 
@@ -625,6 +661,37 @@ class App(object):
                 name = key.replace('_', '-')
                 opt = Option(name, None, value)
                 self.global_opts[name] = opt
+
+    def show_usage(self, stream=None):
+        """Display this App's usage message.
+
+        stream -- optional file-like output stream. Default is stdout.
+
+        """
+
+        if stream is None:
+            stream = sys.stdout
+
+        if self.usage_msg is not None:
+            print >> stream, self.usage_msg
+            print >> stream
+
+        if len(self.commands):
+            self.show_avail_cmds(stream=stream)
+
+    def show_avail_cmds(self, stream=None):
+        """Display this App's commands.
+
+        stream -- optional file-like output stream. Default is stdout.
+
+        """
+
+        if stream is None:
+            stream = sys.stdout
+
+        print >> stream, "Available commands:\n"
+        for name, cmd in self.commands.items():
+            print >> stream, '%s -- %s' % (name, cmd.summary)
 
     def _do_cmd(self, argv):
         """Parse `argv` and run the specified command."""
@@ -691,7 +758,7 @@ class App(object):
             # This program uses subcommands, so the first command must be one.
 
             # DEBUG Should an App with a self.main_cmd be allowed to have
-            # subcommands? Bob points out that it probably shouldn't -
+            # subcommands? Bob pointed out that it probably shouldn't -
             # subcommands break badly, since you can't tell the difference
             # between input that matches a command name and an attempt to
             # invoke the command. This means @command and @main should throw an
@@ -714,11 +781,10 @@ class App(object):
         else:
             args = inputs
 
-        if show_help == True:
-            if self.cmd is not None:
-                # STUB Fill this in.
-                self._display_usage_msg()
-            elif cmd_name:
+        if show_help == True or self.cmd is None:
+            if cmd_name is None:
+                self.show_usage()
+            elif self.cmd is not None:
                 self.cmd._display_usage_msg()
         else:
             self.cmd.run(args)
@@ -740,6 +806,7 @@ class App(object):
                 print >> sys.stderr, 'You must enter a command.'
             else:
                 print >> sys.stderr, "'%s' is not a known command." % exc.input
+                self.show_avail_cmds(sys.stderr)
         except InvalidInput as exc:
             print >> sys.stderr, 'Invalid input: %s' % exc.input
             raise

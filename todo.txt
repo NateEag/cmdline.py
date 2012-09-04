@@ -1,9 +1,3 @@
-2012-08-26 Handle help for non-existent commands.
-
-2012-08-26 Handle help for programs without a main command.
-
-2012-08-26 Handle no command being specified in an App without a main_cmd. It should list the commands and print a general usage statement. (Gotcha: where do we get that usage statement from?)
-
 2012-08-22 Add a semi-sane parser for docstrings, so that usage messages with multiple paragraphs work, and different styles of param docs are understood.
 
 2012-08-22 Add info on args, options, and flags to usage message.
@@ -12,15 +6,13 @@
 
 2012-05-04 Introspect basic usage messages for the app and any subcommands. Could involve requirements on docstring formatting and contents for advanced info - consider converting ' [Rr]eturn(s{0,1}) ' to ' [Oo]utput\1 ' in docstrings, as we output returned values (getting the grammar right for such a conversion might be really sticky).
 
-2012-08-22 Think about impedance mismatch between using func docstrings as usage messages and PEP 8's statement that a module's docstring should be usable as a usage statement, if the module can be run on the command line. If we support a usage statement override, that could solve the problem (but the burden is still on users to do it right). Easy way would be to accept a 'usage' kwarg in the decorators, to which people could pass __doc__.
-
 2012-05-04 Handle exceptions properly. Right now they just print a useless message. They should explain the error and give a usage hint (multi-command programs should be smart about whether a valid command was used). Note that this is how we'll validate type mappings (catch ValueErrors, or some subclass thereof). This should include handling an invalid number of args correctly.
 
-2012-05-15 Consider adding an @app.flag decorator. This would let us support weird flags like '--version' and '--help', which traditionally make an app bail out early and ignore all other inputs.
-
-2012-08-22 Consider opt-in support for "help" as the first input displaying the usage message.
+2012-05-15 Consider adding an @app.flag decorator. This would let us support weird flags like '--version', which traditionally make an app bail out early and ignore all other inputs.
 
 2012-05-09 Let Bob, Josh, and Spencer know when the first release is pushed to GitHub.
+
+2012-09-03 Fix bug where options are interpreted as commands if they come after '--help'.
 
 2012-05-16 See if there's a cleaner/more flexible way to support global options. My current approach feels clunky - maybe I shouldn't be assuming we'll only be passed globals()?
 
@@ -34,6 +26,8 @@
 
 2012-05-08 Consider adding a few useful type converters. A Python implementation of approxidate would be nice (and should be its own module): https://github.com/git/git/blob/master/date.c
 
+2012-08-31 Make sure make_global_opts() actually uses its param_types arg (assuming it still exists).
+
 2012-05-04 Convert DEBUG and GRIPE comments into actions.
 
 2012-05-08 Consider making this a wrapper around one of the existing optparsing libraries, which could save heavy lifting in building powerful apps. Doing it earlier would have saved more effort, but still worth looking at.
@@ -41,5 +35,11 @@
 2012-05-07 Decide whether multiple options/flags that start with the same letter should automatically cause InvalidShortName exceptions. They currently do, which could be quite surprising. Maybe 'generate short names' should be some sort of opt-in toggle?
 
 2012-05-07 Consider fixing '-' option behavior. Many apps accept multiple short names after a hyphen, if at most the last one requires a value.
+
+2012-09-02 Rename default_args_passed to kwargs_passed. It's an internal variable for a few methods, and the current name is actively wrong.
+
+2012-09-03 Rename param_types to arg_types. It's shorter and clearer, since we convert command arguments to specific types, not params generally.
+
+2012-09-03 Try stronger support for guessing param types; if a param is defaulted to an int, make it be an int. A boolean, make it a boolean. A float, make it a float - etc. Even crazier would be to guess what type it ought to be based on what it looks like - that should probably be opt-in behavior, as it could work for many things, but would be utterly obnoxious for certain purposes.
 
 2012-05-07 Consider support for commands that accept *args (maybe **kwargs?).

@@ -1,17 +1,11 @@
 #! /usr/bin/env python
 
-"""A simple test of the cmdline module.
-
-When run without args, prints 'Hello, world!' to stdout.
+"""A command for greeting things.
 
 When run with a single arg, prints the arg to stdout.
 
-If the --yell flag is set, output is in all caps.
-
-If the --punctuation option is passed, the phrase will end with it.
-
-Hopefully, a similar usage message will soon be introspected, rather
-than hardcoded.
+Hopefully, details about options and a useful command format diagram
+will be forthcoming.
 
 """
 
@@ -22,7 +16,7 @@ import os
 import cmdline
 
 # Set up app for this script.
-app = cmdline.App(output_alg=cmdline.print_str)
+app = cmdline.App(usage_msg=__doc__, output_alg=cmdline.print_str)
 
 # Module variables.
 panic = False
@@ -55,7 +49,7 @@ def greet(greeting='Hello, world', punctuation='!', reps=1, sep=os.linesep,
     if panic:
         greeting += ' -- LOOK OUT'
 
-    if rand_val > 20:
+    if rand_val % 2 == 0:
         print rand_val
 
     result = greeting + punctuation

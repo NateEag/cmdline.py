@@ -2,30 +2,28 @@
 
 """A simple test of the cmdline module.
 
-When run without args, prints 'Hello, world!' to stdout.
-
-When run with a single arg, prints the arg to stdout.
-
-If the --yell flag is set, output is in all caps.
-
-If the --punctuation option is passed, the phrase will end with it.
-
-Hopefully, a similar usage message will soon be introspected, rather
-than hardcoded.
+It really doesn't do anything of use. Pay it no mind.
 
 """
 
 # Local imports.
 import cmdline
 
-# Set up app for this script.
-app = cmdline.App(output_alg=cmdline.print_str)
+app = cmdline.App(usage_msg=__doc__, output_alg=cmdline.print_str)
 
-@app.command
+@app.command(usage_msg='Do absolutely nothing.')
 def stub():
-    """Do absolutely nothing."""
-
     pass
+
+@app.command(param_types={'times': int})
+def foobar(times=1):
+    """Return 'foobar'.
+
+    times -- number of repetitions of foobar to return.
+
+    """
+
+    return 'foobar' * times
 
 if __name__ == '__main__':
     app.run()
