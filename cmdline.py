@@ -209,8 +209,8 @@ class Command(object):
         # Before we can, we'll have to add some decent docstring parsing.
         pass
 
-    def _display_usage_msg(self, stream=None):
-        """Print a basic usage message.
+    def show_usage(self, stream=None):
+        """Display this Command's usage message.
 
         stream -- optional file-like output stream. Default is stdout.
 
@@ -219,10 +219,27 @@ class Command(object):
         if stream is None:
             stream = sys.stdout
 
-        print self.usage_msg
-        # DEBUG Implement this. Possible logic follows in comments.
+        # STUB This is temporary - eventually we need to format this nicely
+        # and think about how wide a device we're being displayed in.
+        print >> stream, self.usage_msg
 
-        # Set stream if it was not passed.
+        if len(self.args) > 0:
+            print >> stream
+            print >> stream, 'Args:'
+            for arg in self.args:
+                print >> stream, '%s: %s'
+
+        if len(self.opts) > 0:
+            print >> stream
+            print >> stream, 'Options:'
+            for name, opt in self.opts.items():
+                print >> stream, '%s: %s' % (name, opt.summary)
+
+        if len(self.flags) > 0:
+            print >> stream
+            print >> stream, 'Flags:'
+            for name, flag in self.flag.items():
+                print >> stream, '%s: %s' % (name, flag.summary)
 
         # Figure out how many chars wide the device we're displaying to is.
         # Default to 80 if none are found?
@@ -349,7 +366,7 @@ class Command(object):
         # great thing to have here. Someone must have written one...
         docstr = inspect.getdoc(func)
         cur_name = None
-        annotations = {}
+        summaries = {}
         if docstr is not None and usage_msg is None:
             usage_msg = ''
             for line in docstr.splitlines():
@@ -362,12 +379,11 @@ class Command(object):
                 if '--' in line:
                     name, junk, summary = line.partition('--')
                     cur_name = name.strip()
-                    annotation = {}
-                    annotation['summary'] = summary.strip()
+                    summary = summary.strip()
 
-                    annotations[cur_name] = annotation
+                    summaries[cur_name] = summary
                 elif cur_name is not None:
-                    annotations[cur_name]['summary'] += ' ' + line.strip()
+                    summaries[cur_name] += ' ' + line.strip()
                 elif cur_name is None:
                     line = line.strip()
                     if line == '':
@@ -391,9 +407,7 @@ class Command(object):
         args = {}
         for i, arg in enumerate(arg_list):
             summary = None
-            annotation = annotations.get(arg)
-            if annotation is not None:
-                summary = annotation['summary']
+            summary = summaries.get(arg)
 
             args[i] = Arg(arg, summary)
 
@@ -409,10 +423,7 @@ class Command(object):
                 if tmp is not None and len(tmp) == 1:
                     short_name = tmp
 
-            summary = None
-            annotation = annotations.get(arg)
-            if annotation is not None:
-                summary = annotation['summary']
+            summary = summaries.get(arg)
 
             if arg in opt_args:
                 opt_args_dict[arg] = Arg(arg, summary, defaults[i])
@@ -785,7 +796,7 @@ class App(object):
             if cmd_name is None:
                 self.show_usage()
             elif self.cmd is not None:
-                self.cmd._display_usage_msg()
+                self.cmd.show_usage()
         else:
             self.cmd.run(args)
 

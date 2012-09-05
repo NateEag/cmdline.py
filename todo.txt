@@ -8,9 +8,11 @@
 
 2012-05-04 Handle exceptions properly. Right now they just print a useless message. They should explain the error and give a usage hint (multi-command programs should be smart about whether a valid command was used). Note that this is how we'll validate type mappings (catch ValueErrors, or some subclass thereof). This should include handling an invalid number of args correctly.
 
-2012-05-15 Consider adding an @app.flag decorator. This would let us support weird flags like '--version', which traditionally make an app bail out early and ignore all other inputs.
+2012-09-03 Try stronger support for guessing param types. Maybe a basic type guesser and support for explicit type mappings in case the guesser fails badly. We could also let users pass a type-guessing callable to the App constructor; it takes a string and returns an instance of whatever type it decided was appropriate.
 
 2012-05-09 Let Bob, Josh, and Spencer know when the first release is pushed to GitHub.
+
+2012-05-15 Consider adding an @app.flag decorator. This would let us support weird flags like '--version', which traditionally make an app bail out early and ignore all other inputs.
 
 2012-09-03 Fix bug where options are interpreted as commands if they come after '--help'.
 
@@ -39,7 +41,5 @@
 2012-09-02 Rename default_args_passed to kwargs_passed. It's an internal variable for a few methods, and the current name is actively wrong.
 
 2012-09-03 Rename param_types to arg_types. It's shorter and clearer, since we convert command arguments to specific types, not params generally.
-
-2012-09-03 Try stronger support for guessing param types; if a param is defaulted to an int, make it be an int. A boolean, make it a boolean. A float, make it a float - etc. Even crazier would be to guess what type it ought to be based on what it looks like - that should probably be opt-in behavior, as it could work for many things, but would be utterly obnoxious for certain purposes.
 
 2012-05-07 Consider support for commands that accept *args (maybe **kwargs?).
