@@ -19,3 +19,6 @@
 2012-09-03 Handled no command being specified in an App without a main_cmd. It should print a general usage statement (if available) and list the commands.
 
 2012-09-03 Added a usage_msg kwarg to the App constructor and the command/main decorators. For App, the strongly-urged convention will be to do App(usage_msg=__doc__), in accordance with PEP 8.
+
+
+2012-09-06 Implemented Command._get_param_summaries().

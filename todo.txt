@@ -1,3 +1,7 @@
+2012-09-05 Figure out whether a blank line really *does* indicate an arg summary is over for Sphinx/epydoc/PEP 257, or whether multiple paragraphs are allowed in describing options.
+
+2012-09-04 Replace the ugly docstring 'parsing' in Command.from_func() with calls to Command._get_usage_msg() and Command._get_param_summaries(). Implement those two methods.
+
 2012-08-22 Add a semi-sane parser for docstrings, so that usage messages with multiple paragraphs work, and different styles of param docs are understood.
 
 2012-08-22 Add info on args, options, and flags to usage message.
@@ -10,7 +14,7 @@
 
 2012-09-03 Try stronger support for guessing param types. Maybe a basic type guesser and support for explicit type mappings in case the guesser fails badly. We could also let users pass a type-guessing callable to the App constructor; it takes a string and returns an instance of whatever type it decided was appropriate.
 
-2012-05-09 Let Bob, Josh, and Spencer know when the first release is pushed to GitHub.
+2012-05-09 Let Bob, Josh, Spencer, and Nate M. know when the first release is pushed to GitHub.
 
 2012-05-15 Consider adding an @app.flag decorator. This would let us support weird flags like '--version', which traditionally make an app bail out early and ignore all other inputs.
 

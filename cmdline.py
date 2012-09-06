@@ -11,6 +11,8 @@ For now, see hello.py for a simple example.
 
 # Standard library imports.
 import inspect
+import os
+import re
 import sys
 import types
 
@@ -138,8 +140,12 @@ class Command(object):
 
     """
 
-    # GRIPE You could argue that __init__ should actually just be from_func.
-    # I'm not sure if you'd be right or not.
+    # Used to recognize PEP 257-style function arg descriptions in
+    # docstrings.
+    _pep_257_re = re.compile(r'^(\w+) --')
+
+    # GRIPE You could argue that __init__ should actually just be
+    # from_func. I'm not sure if you'd be right or not.
     def __init__(self, func, args, opt_args, opts, flags, output_alg=None,
                  param_types=None, usage_msg=None, name=None):
         """Make a new Command.
@@ -332,6 +338,92 @@ class Command(object):
             self.output_alg(result)
 
     @classmethod
+    def _get_param_summaries(cls, docstr):
+        """Parse `docstr` and return a dict mapping param => summary.
+
+        It tries to understand three formats for describing params in
+        docstrings:
+
+        * PEP 257:
+            param_name -- A summary of the function parameter, possibly
+                          spanning multiple lines.
+
+                          Or even paragraphs.
+
+        * Sphinx:
+            :param param_name: A summary of the function parameter,
+                               possibly spanning multiple lines.
+
+                               Or even paragraphs.
+
+        * epydoc:
+            @param param_name: A summary of the function parameter,
+                               possibly spanning multiple lines.
+
+                               Or even paragraphs.
+
+        Other formats exist, but these seem to be the major ones, based
+        on an utterly unscientific Google binge.
+
+        """
+
+        summaries = {}
+
+        if docstr is None:
+            return summaries
+
+        param_name = None
+        param_summary = None
+        blank_line_seen = False
+        for line in docstr.splitlines():
+            match = cls._pep_257_re.match(line)
+            if match is not None:
+                param_name = match.groups()[0]
+                remainder = line[match.end():].strip()
+            elif line.startswith('@param') or line.startswith(':param'):
+                next_colon_pos = line.find(':', 7)
+                param_name = line[7:next_colon_pos]
+                remainder = line[next_colon_pos + 1:].strip()
+            elif line != '' and line.lstrip() == line:
+                # This line is not blank, is not indented, and contains no
+                # param name, so the param summary must be finished.
+                param_name = None
+                continue
+
+            if param_name is not None:
+                if remainder is not None:
+                    summaries[param_name] = remainder.strip()
+                    blank_line_seen = False
+                elif line == '':
+                    # Remember this blank line, in case it's part of the
+                    # current summary.
+                    blank_line_seen = True
+                else:
+                    if blank_line_seen:
+                        # This will discard >2 blank lines in a summary,
+                        # but that will probably look better anyway.
+                        summaries[param_name] += os.linesep * 2 + line.strip()
+                        blank_line_seen = False
+                    else:
+                        summaries[param_name] += ' ' + line.strip()
+
+            remainder = None
+
+        return summaries
+
+    @classmethod
+    def _get_usage_msg(cls, docstr):
+        """Parse `docstr` and return a usage message.
+
+        Mostly, this tries to guess at what point a docstring stops
+        being applicable to a command and returns everything before
+        that.
+
+        """
+
+        pass
+
+    @classmethod
     def from_func(cls, func, output_alg=None, short_names=None, opt_args=None,
                   param_types=None, usage_msg=None):
         """Get an instance of Command by introspecting func.
@@ -346,7 +438,7 @@ class Command(object):
             that take a string as input and return an object of the
             desired type (or raise a ValueError).
         usage_msg -- an optional string explaining the command. Defaults
-            to func's docstring.
+            to a processed version of func's docstring.
 
         DEBUG This should ignore self/cls parameters. I'm not sure how
         to distinguish between functions and methods, so for now we're
@@ -361,12 +453,12 @@ class Command(object):
             opt_args = []
 
         # Grab any param summary from the docstring.
-        # DEBUG This would break under a whole lot of circumstances. It'll work
-        # for getting a prototype up, but an actual docstring parser would be a
-        # great thing to have here. Someone must have written one...
         docstr = inspect.getdoc(func)
+        summaries = cls._get_param_summaries(docstr)
         cur_name = None
-        summaries = {}
+        # GRIPE This loop should go away in the next commit, but remains to
+        # support getting the command's usage message. There still remains code
+        # for getting param summaries that has been obviated.
         if docstr is not None and usage_msg is None:
             usage_msg = ''
             for line in docstr.splitlines():
@@ -381,9 +473,8 @@ class Command(object):
                     cur_name = name.strip()
                     summary = summary.strip()
 
-                    summaries[cur_name] = summary
                 elif cur_name is not None:
-                    summaries[cur_name] += ' ' + line.strip()
+                    pass
                 elif cur_name is None:
                     line = line.strip()
                     if line == '':
@@ -406,9 +497,7 @@ class Command(object):
         arg_list = func_args[:num_func_args]
         args = {}
         for i, arg in enumerate(arg_list):
-            summary = None
             summary = summaries.get(arg)
-
             args[i] = Arg(arg, summary)
 
         # Build optional arg dict, option dict, and flag dict.
