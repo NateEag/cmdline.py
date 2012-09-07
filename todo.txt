@@ -1,10 +1,6 @@
-2012-09-05 Figure out whether a blank line really *does* indicate an arg summary is over for Sphinx/epydoc/PEP 257, or whether multiple paragraphs are allowed in describing options.
+2012-08-22 Add info on args, options, and flags to help.
 
-2012-09-04 Replace the ugly docstring 'parsing' in Command.from_func() with calls to Command._get_usage_msg() and Command._get_param_summaries(). Implement those two methods.
-
-2012-08-22 Add a semi-sane parser for docstrings, so that usage messages with multiple paragraphs work, and different styles of param docs are understood.
-
-2012-08-22 Add info on args, options, and flags to usage message.
+2012-09-06 Make sure usage message displays correctly for programs with a main command.
 
 2012-08-22 Try to format usage message for device it's being displayed on (i.e., try to detect terminal width).
 

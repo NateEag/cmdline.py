@@ -20,5 +20,6 @@
 
 2012-09-03 Added a usage_msg kwarg to the App constructor and the command/main decorators. For App, the strongly-urged convention will be to do App(usage_msg=__doc__), in accordance with PEP 8.
 
-
 2012-09-06 Implemented Command._get_param_summaries().
+
+2012-09-06 Added a semi-sane parser for docstrings, so that usage messages with multiple paragraphs work, and different styles of param docs are understood. It's not elegant and it needs work, but it's a big improvement over what I had.

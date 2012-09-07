@@ -37,6 +37,14 @@ def greet(greeting='Hello, world', punctuation='!', reps=1, sep=os.linesep,
     It is fairly conventional to have some extra commentary, unless you
     really don't need it, so I'm going to include it here.
 
+        What happens if we have an indented block? It looks like things
+        get munged fairly badly, actually. I should probably fix that at
+        some point.
+
+        * Bullet item.
+        * Another bullet item.
+        * And ALWAYS... no, NEVER go out in a snowstorm.
+
     >>> print 'Bogus doctest here'
     Bogus doctest here
 

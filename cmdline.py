@@ -417,11 +417,40 @@ class Command(object):
 
         Mostly, this tries to guess at what point a docstring stops
         being applicable to a command and returns everything before
-        that.
+        that, with paragraphs merged into a single line, so they can
+        be formatted to an arbitrary width later.
+
+        It assumes a docstring is no longer explaining the command in
+        general once it has seen a parameter description or a doctest
+        block.
+
+        DEBUG This currently munges indented blocks horribly. That
+        should be fixed, as many tools have reason to display codeish
+        examples. The ugly bit is that it needs to deal with tabs,
+        not just spaces.
 
         """
 
-        pass
+        if docstr is None:
+            return
+
+        usage_msg = ''
+        blank_line_seen = False
+        for line in docstr.splitlines():
+            # GRIPE This is a lot like the code for getting param summaries -
+            # should they be merged for DRYness, or would that hurt readability
+            # too much?
+            match = cls._pep_257_re.match(line)
+            if line.startswith('>>>') or (line.startswith('@param') or
+                                          line.startswith(':param') or
+                                          match is not None):
+                break
+            elif line == '':
+                usage_msg += os.linesep * 2
+            else:
+                usage_msg += line if usage_msg.endswith(os.linesep) else ' ' + line
+
+        return usage_msg.strip()
 
     @classmethod
     def from_func(cls, func, output_alg=None, short_names=None, opt_args=None,
@@ -454,38 +483,12 @@ class Command(object):
 
         # Grab any param summary from the docstring.
         docstr = inspect.getdoc(func)
-        summaries = cls._get_param_summaries(docstr)
-        cur_name = None
-        # GRIPE This loop should go away in the next commit, but remains to
-        # support getting the command's usage message. There still remains code
-        # for getting param summaries that has been obviated.
-        if docstr is not None and usage_msg is None:
-            usage_msg = ''
-            for line in docstr.splitlines():
-                line_chk = line.lower()
-                if line_chk is not None and line_chk.strip() == '':
-                    # Blank line means end of the current name's description.
-                    cur_name = None
-                    continue
-
-                if '--' in line:
-                    name, junk, summary = line.partition('--')
-                    cur_name = name.strip()
-                    summary = summary.strip()
-
-                elif cur_name is not None:
-                    pass
-                elif cur_name is None:
-                    line = line.strip()
-                    if line == '':
-                        # This was a blank line.
-                        # DEBUG This cannot happen given our detection of the
-                        # param description section.
-                        usage_msg += '\n'
-                    else:
-                        # Replace whitespace with a single space.
-                        usage_msg += ' ' + line.strip()
-            usage_msg = usage_msg.strip()
+        if docstr is not None:
+            # GRIPE We should probably let you pass param summaries from
+            # outside.
+            summaries = cls._get_param_summaries(docstr)
+            if usage_msg is None:
+                usage_msg = cls._get_usage_msg(docstr)
 
         # Inspect func for hard data.
         func_args, varargs, varkw, defaults = inspect.getargspec(func)
