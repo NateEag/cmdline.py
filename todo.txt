@@ -1,5 +1,3 @@
-2012-08-22 Add info on args, options, and flags to help.
-
 2012-09-06 Make sure usage message displays correctly for programs with a main command.
 
 2012-08-22 Try to format usage message for device it's being displayed on (i.e., try to detect terminal width).
@@ -12,11 +10,17 @@
 
 2012-05-09 Let Bob, Josh, Spencer, and Nate M. know when the first release is pushed to GitHub.
 
+2012-09-07 Support '--' specifying that there are no options after it, and that all remaining input should be treated literally.
+
+2012-09-07 Consider trying to evaluate python inside backticks in docstrings. That would let things like `os.linesep` display the actual character in help messages. This is probably too clever - it would add a lot of complexity for little gain. Another option - match param name to actual param and substitute the default value?
+
 2012-05-15 Consider adding an @app.flag decorator. This would let us support weird flags like '--version', which traditionally make an app bail out early and ignore all other inputs.
 
 2012-09-03 Fix bug where options are interpreted as commands if they come after '--help'.
 
 2012-05-16 See if there's a cleaner/more flexible way to support global options. My current approach feels clunky - maybe I shouldn't be assuming we'll only be passed globals()?
+
+2012-09-10 Add help paging of some kind. A long help document makes you scroll to read, which is annoying.
 
 2012-05-04 Support config files.
 
@@ -43,3 +47,5 @@
 2012-09-03 Rename param_types to arg_types. It's shorter and clearer, since we convert command arguments to specific types, not params generally.
 
 2012-05-07 Consider support for commands that accept *args (maybe **kwargs?).
+
+2012-09-10 Port to Python 3 - if all the preceding items are handled, it means someone is using this thing (even if it's just me), and they may want to use a framework to help them with it.

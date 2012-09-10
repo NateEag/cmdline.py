@@ -14,9 +14,10 @@ import inspect
 import os
 import re
 import sys
+import textwrap
 import types
 
-# Python 2.7 has OrderedDict; for 2.4 - 2.6, we fall back to an external
+# Python 2.7 has OrderedDict; for 2.4 - 2.6, we fall back to this
 # implementation.
 try:
     from collections import OrderedDict
@@ -113,7 +114,7 @@ class InvalidShortName(InvalidInput):
         self.opt_two = opt_two
 
 class Arg(object):
-    """An argument a command-line app accepts."""
+    """An argument for a command-line app."""
 
     def __init__(self, name, summary, default=None):
 
@@ -121,14 +122,52 @@ class Arg(object):
         self.summary = summary
         self.default = default
 
-class Option(object):
-    """An option a command-line app accepts."""
+    def format_name(self):
+        """Return a string representing this argument's name."""
+
+        return self.name
+
+    def format_summary(self, width=70):
+        """Return a formatted summary of `self`.
+
+        width -- Optional max width of a line in result. Defaults to 70.
+
+        """
+
+        name = self.format_name()
+        summary = ''
+        for line in self.summary.splitlines():
+            if line is not '':
+                summary += textwrap.fill(line, width,
+                                         initial_indent=' ' * 6,
+                                         subsequent_indent=' ' * 6)
+            else:
+                summary += os.linesep * 2
+
+        return '  %s%s%s' % (name, os.linesep, summary)
+
+class Option(Arg):
+    """An option for a command-line app."""
+
+    # GRIPE Options really are not a kind of argument. It extends Arg
+    # to keep things DRY, which suggests I have misnamed something here.
 
     def __init__(self, name, summary, default, short_name=None):
         self.name = name
         self.default = default
         self.summary = summary
         self.short_name = name[0] if short_name is None else short_name
+
+    def format_name(self):
+        """Return a string of the names this option can be set with."""
+
+        result = ''
+        if self.short_name is not None:
+            result += '-%s/' % self.short_name
+
+        result += '--%s' % self.name
+
+        return result
 
 class Command(object):
     """A sub-command in a command-line app.
@@ -204,20 +243,49 @@ class Command(object):
 
             self.short_names[value.short_name] = key
 
-    def _get_usage_str(self, width=80):
-        """Return a usage string formatted to `width` chars.
+    def _format_help_msg(self, app_name, width=70):
+        """Return a help string formatted to `width` chars.
 
-        width -- max # of chars in a line.
+        app_name -- name of app this Command is running within.
+        width -- optional max # of chars in a line. Defaults to 70.
 
         """
 
-        # DEBUG Implement this.
-        # Before we can, we'll have to add some decent docstring parsing.
-        pass
+        example = 'Usage:%s%s' % (os.linesep, app_name + ' ' + self.name)
+        # DEBUG Filling indiscriminately like this breaks things rather badly.
+        usage_msg = textwrap.fill(self.usage_msg, width)
+        input_summaries = []
 
-    def show_usage(self, stream=None):
+        if len(self.args) > 0 or len(self.opt_args) > 0:
+            input_summaries.append('Arguments:')
+            for arg in self.args:
+                example += ' <%s>' % arg.name
+                input_summaries.append(arg.format_summary())
+
+            for arg in self.opt_args:
+                example += ' [<%s>]' % arg.name
+                input_summaries.append(arg.format_summary())
+
+        if len(self.opts) > 0 or len(self.flags) > 0:
+            # GRIPE Storing flags and opts separately is looking dumb.
+            # I should probably merge them.
+            opts = dict(self.opts)
+            opts.update(self.flags)
+
+            input_summaries.append('Options:')
+            for opt in opts.values():
+                input_summaries.append(opt.format_summary())
+
+        input_summaries.insert(0, usage_msg)
+        sep = os.linesep * 2
+        usage_msg = sep.join(input_summaries)
+
+        return os.linesep.join([example + os.linesep, usage_msg])
+
+    def show_usage(self, app_name, stream=None):
         """Display this Command's usage message.
 
+        app_name -- name of the app Comand is being run from.
         stream -- optional file-like output stream. Default is stdout.
 
         """
@@ -225,32 +293,9 @@ class Command(object):
         if stream is None:
             stream = sys.stdout
 
-        # STUB This is temporary - eventually we need to format this nicely
-        # and think about how wide a device we're being displayed in.
-        print >> stream, self.usage_msg
-
-        if len(self.args) > 0:
-            print >> stream
-            print >> stream, 'Args:'
-            for arg in self.args:
-                print >> stream, '%s: %s'
-
-        if len(self.opts) > 0:
-            print >> stream
-            print >> stream, 'Options:'
-            for name, opt in self.opts.items():
-                print >> stream, '%s: %s' % (name, opt.summary)
-
-        if len(self.flags) > 0:
-            print >> stream
-            print >> stream, 'Flags:'
-            for name, flag in self.flag.items():
-                print >> stream, '%s: %s' % (name, flag.summary)
-
-        # Figure out how many chars wide the device we're displaying to is.
-        # Default to 80 if none are found?
-
-        # Get a help string formatted to needed width and add it to stream.
+        # DEBUG We should figure out how wide the target output device is.
+        usage_msg = self._format_help_msg(app_name)
+        print >> stream, usage_msg
 
     def run(self, inputs):
         """Run this command with `inputs` as our argv array."""
@@ -498,14 +543,13 @@ class Command(object):
 
         # Build required arg dict.
         arg_list = func_args[:num_func_args]
-        args = {}
-        for i, arg in enumerate(arg_list):
+        args = []
+        for arg in arg_list:
             summary = summaries.get(arg)
-            args[i] = Arg(arg, summary)
+            args.append(Arg(arg, summary))
 
-        # Build optional arg dict, option dict, and flag dict.
+        # Build optional arg list, options dict, and flags dict.
         # (Yes, this is rather ugly.)
-        opt_args_dict = OrderedDict()
         opts = {}
         flags = {}
         for i, arg in enumerate(func_args[num_func_args:]):
@@ -518,7 +562,8 @@ class Command(object):
             summary = summaries.get(arg)
 
             if arg in opt_args:
-                opt_args_dict[arg] = Arg(arg, summary, defaults[i])
+                pos = opt_args.index(arg)
+                opt_args[pos] = Arg(arg, summary, defaults[i])
 
                 continue
 
@@ -529,7 +574,7 @@ class Command(object):
 
             opts[arg] = Option(arg, summary, defaults[i], short_name)
 
-        return cls(func, args, opt_args_dict, opts, flags, output_alg,
+        return cls(func, args, opt_args, opts, flags, output_alg,
                    param_types, usage_msg)
 
 class App(object):
@@ -549,7 +594,7 @@ class App(object):
         self.output_alg = output_alg
         self.main_cmd = None
         self.commands = {}
-        self.script_name = None
+        self.name = None
         self.argv = []
         self.usage_msg = usage_msg if usage_msg is None else usage_msg.strip()
 
@@ -800,7 +845,7 @@ class App(object):
         """Parse `argv` and run the specified command."""
 
         self.argv = argv[:]
-        self.script_name = argv[0]
+        self.name = argv[0]
 
         inputs = argv[1:]
         global_opts = {}
@@ -888,7 +933,7 @@ class App(object):
             if cmd_name is None:
                 self.show_usage()
             elif self.cmd is not None:
-                self.cmd.show_usage()
+                self.cmd.show_usage(self.name)
         else:
             self.cmd.run(args)
 
