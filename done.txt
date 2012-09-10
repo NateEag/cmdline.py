@@ -27,3 +27,5 @@
 2012-09-10 Add info on args, options, and flags to help.
 
 2012-09-10 Got usage message displaying core elements for Apps with only a main command.
+
+2012-09-10 Fill each paragraph of a Command's help message separately. Improves readability significantly.

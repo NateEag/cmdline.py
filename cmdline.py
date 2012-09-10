@@ -259,9 +259,14 @@ class Command(object):
 
         example = 'Usage:%s%s' % (os.linesep, app_name + ' ' + self.name)
         # DEBUG Filling indiscriminately like this breaks things rather badly.
-        usage_msg = textwrap.fill(self.usage_msg, width)
-        input_summaries = []
+        usage_msg = ''
+        for line in self.usage_msg.splitlines():
+            if line is not '':
+                usage_msg += textwrap.fill(line, width)
+            else:
+                usage_msg += os.linesep * 2
 
+        input_summaries = []
         if len(self.args) > 0 or len(self.opt_args) > 0:
             arg_summaries = []
             for arg in self.args:
