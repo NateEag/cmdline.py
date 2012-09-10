@@ -25,3 +25,5 @@
 2012-09-06 Added a semi-sane parser for docstrings, so that usage messages with multiple paragraphs work, and different styles of param docs are understood. It's not elegant and it needs work, but it's a big improvement over what I had.
 
 2012-09-10 Add info on args, options, and flags to help.
+
+2012-09-10 Got usage message displaying core elements for Apps with only a main command.

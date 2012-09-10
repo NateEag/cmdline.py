@@ -1,6 +1,6 @@
 2012-09-06 Make sure usage message displays correctly for programs with a main command.
 
-2012-08-22 Try to format usage message for device it's being displayed on (i.e., try to detect terminal width).
+2012-09-10 Format body of help message less horribly.
 
 2012-05-04 Introspect basic usage messages for the app and any subcommands. Could involve requirements on docstring formatting and contents for advanced info - consider converting ' [Rr]eturn(s{0,1}) ' to ' [Oo]utput\1 ' in docstrings, as we output returned values (getting the grammar right for such a conversion might be really sticky).
 
@@ -9,6 +9,8 @@
 2012-09-03 Try stronger support for guessing param types. Maybe a basic type guesser and support for explicit type mappings in case the guesser fails badly. We could also let users pass a type-guessing callable to the App constructor; it takes a string and returns an instance of whatever type it decided was appropriate.
 
 2012-05-09 Let Bob, Josh, Spencer, and Nate M. know when the first release is pushed to GitHub.
+
+2012-08-22 Try to format usage message for device it's being displayed on (i.e., try to detect terminal width).
 
 2012-09-07 Support '--' specifying that there are no options after it, and that all remaining input should be treated literally.
 

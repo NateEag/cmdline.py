@@ -47,7 +47,7 @@ class BadArgCount(InvalidInput):
 
     def __init__(self, cmd, min_required, max_allowed, num_given):
 
-        self.cmd = cmd
+        self.input = cmd
         self.min_required = min_required
         self.max_allowed = max_allowed
         self.num_given = num_given
@@ -130,12 +130,18 @@ class Arg(object):
     def format_summary(self, width=70):
         """Return a formatted summary of `self`.
 
+        Return `None` if no summary is available.
+
         width -- Optional max width of a line in result. Defaults to 70.
 
         """
 
-        name = self.format_name()
+        if self.summary is None:
+            return None
+
         summary = ''
+        name = self.format_name()
+
         for line in self.summary.splitlines():
             if line is not '':
                 summary += textwrap.fill(line, width,
@@ -257,14 +263,23 @@ class Command(object):
         input_summaries = []
 
         if len(self.args) > 0 or len(self.opt_args) > 0:
-            input_summaries.append('Arguments:')
+            arg_summaries = []
             for arg in self.args:
                 example += ' <%s>' % arg.name
-                input_summaries.append(arg.format_summary())
+                summary = arg.format_summary()
+                if summary is not None:
+                    # Only explain inputs that have explanations.
+                    arg_summaries.append(summary)
 
             for arg in self.opt_args:
                 example += ' [<%s>]' % arg.name
-                input_summaries.append(arg.format_summary())
+                summary = arg.format_summary()
+                if summary is not None:
+                    arg_summaries.append(summary)
+
+            if len(arg_summaries) > 0:
+                arg_summaries.insert(0, 'Arguments:')
+                input_summaries.extend(arg_summaries)
 
         if len(self.opts) > 0 or len(self.flags) > 0:
             # GRIPE Storing flags and opts separately is looking dumb.
@@ -272,9 +287,15 @@ class Command(object):
             opts = dict(self.opts)
             opts.update(self.flags)
 
-            input_summaries.append('Options:')
+            opt_summaries = []
             for opt in opts.values():
-                input_summaries.append(opt.format_summary())
+                summary = opt.format_summary()
+                if summary is not None:
+                    opt_summaries.append(summary)
+
+            if len(opt_summaries) > 0:
+                opt_summaries.insert(0, 'Options:')
+                input_summaries.extend(opt_summaries)
 
         input_summaries.insert(0, usage_msg)
         sep = os.linesep * 2
@@ -825,7 +846,9 @@ class App(object):
             print >> stream
 
         if len(self.commands):
-            self.show_avail_cmds(stream=stream)
+            self.show_avail_cmds(stream)
+        elif self.main_cmd is not None:
+            self.main_cmd.show_usage(self.name, stream)
 
     def show_avail_cmds(self, stream=None):
         """Display this App's commands.
@@ -951,13 +974,17 @@ class App(object):
             self._do_cmd(argv)
         except UnknownCommand as exc:
             if exc.input is None:
-                print >> sys.stderr, 'You must enter a command.'
+                print >> sys.stderr, 'ERROR: You must enter a command.'
             else:
-                print >> sys.stderr, "'%s' is not a known command." % exc.input
+                print >> sys.stderr, "ERROR: '%s' is not a known command." % exc.input
                 self.show_avail_cmds(sys.stderr)
         except InvalidInput as exc:
-            print >> sys.stderr, 'Invalid input: %s' % exc.input
-            raise
+            if isinstance(exc, BadArgCount):
+                print >> sys.stderr, 'ERROR: You must enter a valid number of inputs.'
+            else:
+                print >> sys.stderr, 'Invalid input: %s' % exc.input
+
+            self.show_usage()
 
 def print_str(obj):
     """Basic output algorithm for command-line programs.
