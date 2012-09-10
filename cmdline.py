@@ -258,13 +258,32 @@ class Command(object):
         """
 
         example = 'Usage:%s%s' % (os.linesep, app_name + ' ' + self.name)
-        # DEBUG Filling indiscriminately like this breaks things rather badly.
         usage_msg = ''
-        for line in self.usage_msg.splitlines():
-            if line is not '':
-                usage_msg += textwrap.fill(line, width)
+        usage_paras = []
+        for paragraph in self.usage_msg.split('\n' * 2):
+            indent_level = 0
+            for char in paragraph:
+                if char == ' ':
+                    indent_level += 1
+                    break
+
+            if indent_level == 0:
+                usage_paras.append(textwrap.fill(paragraph, width))
             else:
-                usage_msg += os.linesep * 2
+                # As there was indentation, we leave the lines exactly
+                # as they were - could be a sample code block or similar.
+                # GRIPE This could make help messages hard to read sometimes.
+                # Oh well.
+                usage_paras.append(paragraph)
+
+            indent_level = 0
+
+        sep = os.linesep * 2
+        usage_msg += sep.join(usage_paras)
+
+        # print self.usage_msg.split('\n' * 2)
+
+        # return ''
 
         input_summaries = []
         if len(self.args) > 0 or len(self.opt_args) > 0:
@@ -488,8 +507,7 @@ class Command(object):
 
         Mostly, this tries to guess at what point a docstring stops
         being applicable to a command and returns everything before
-        that, with paragraphs merged into a single line, so they can
-        be formatted to an arbitrary width later.
+        that.
 
         It assumes a docstring is no longer explaining the command in
         general once it has seen a parameter description or a doctest
@@ -505,23 +523,22 @@ class Command(object):
         if docstr is None:
             return
 
-        usage_msg = ''
-        blank_line_seen = False
-        for line in docstr.splitlines():
+        paragraphs = []
+        for para in docstr.split('\n' * 2):
             # GRIPE This is a lot like the code for getting param summaries -
             # should they be merged for DRYness, or would that hurt readability
             # too much?
-            match = cls._pep_257_re.match(line)
-            if line.startswith('>>>') or (line.startswith('@param') or
-                                          line.startswith(':param') or
+            match = cls._pep_257_re.match(para)
+            if para.startswith('>>>') or (para.startswith('@param') or
+                                          para.startswith(':param') or
                                           match is not None):
                 break
-            elif line == '':
-                usage_msg += os.linesep * 2
             else:
-                usage_msg += line if usage_msg.endswith(os.linesep) else ' ' + line
+                paragraphs.append(para)
 
-        return usage_msg.strip()
+        sep = os.linesep * 2
+
+        return sep.join(paragraphs)
 
     @classmethod
     def from_func(cls, func, output_alg=None, short_names=None, opt_args=None,

@@ -48,16 +48,17 @@ def greet(greeting='Hello, world', punctuation='!', reps=1, sep=os.linesep,
     It is fairly conventional to have some extra commentary, unless you
     really don't need it, so I'm going to include it here.
 
-        What happens if we have an indented block? It looks like things
-        get munged fairly badly, actually. I should probably fix that at
-        some point.
+    Indented blocks are preserved exactly as written in docstrings.
+
+    This can hurt readability, but it gives things like code blocks
+    and lists a simple preservation mechanism.
 
         * Bullet item.
         * Another bullet item.
         * And ALWAYS... no, NEVER go out in a snowstorm.
 
-    >>> print 'Bogus doctest here'
-    Bogus doctest here
+    >>> print 'Pointless doctest here'
+    Pointless doctest here
 
     Note the use of three param description formats below. In order to
     test the param summary extractor, I have tried to make this
@@ -77,7 +78,7 @@ def greet(greeting='Hello, world', punctuation='!', reps=1, sep=os.linesep,
     some mildly abstruse point about the rationale for including a set
     of kwargs for the function.
 
-    Following, a summary of such kwargs
+    Following, a summary of such kwargs:
 
     sep -- string to separate repetitions of greeting. Defaults to
         os.linesep.
