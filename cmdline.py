@@ -189,7 +189,7 @@ class Command(object):
     # GRIPE You could argue that __init__ should actually just be
     # from_func. I'm not sure if you'd be right or not.
     def __init__(self, func, args, opt_args, opts, flags, output_alg=None,
-                 param_types=None, usage_msg=None, name=None):
+                 arg_types=None, usage_msg=None, name=None):
         """Make a new Command.
 
         func -- callable that does the command's work.
@@ -202,7 +202,7 @@ class Command(object):
             value.
         output_alg -- callable to display `func`'s return value.
             Defaults to None, as good *nix programs are silent by default.
-        param_types -- optional dict mapping param names to callables
+        arg_types -- optional dict mapping param names to callables
             that take a string as input and return an object of the
             desired type (or raise a ValueError).
         usage_msg -- Optional string explaining the command. Defaults to
@@ -219,7 +219,7 @@ class Command(object):
         self.opts = opts
         self.flags = flags
         self.output_alg = output_alg
-        self.param_types = param_types
+        self.arg_types = arg_types
         self.usage_msg = usage_msg
 
         summary = None
@@ -387,9 +387,9 @@ class Command(object):
                 elif opt not in self.opts:
                     raise UnknownOption(opt)
 
-                if (self.param_types is not None and
-                    opt in self.param_types):
-                    val = self.param_types[opt](val)
+                if (self.arg_types is not None and
+                    opt in self.arg_types):
+                    val = self.arg_types[opt](val)
 
                 kwargs[opt] = val
             else:
@@ -402,9 +402,9 @@ class Command(object):
                     opt_arg_idx += 1
                     cur_arg = self.opt_args[opt_arg_name]
 
-                if (self.param_types is not None and
-                    cur_arg.name in self.param_types):
-                    item = self.param_types[cur_arg.name](item)
+                if (self.arg_types is not None and
+                    cur_arg.name in self.arg_types):
+                    item = self.arg_types[cur_arg.name](item)
 
                 args.append(item)
 
@@ -413,12 +413,6 @@ class Command(object):
         num_args_passed = len(args)
         if num_args_passed < num_args or num_args > max_args:
             raise BadArgCount(self.name, num_args, max_args, num_args_passed)
-
-        # Default any optional args that were not passed.
-        num_opt_args_passed = num_args_passed - num_args
-        for i, key in enumerate(self.opt_args):
-            if i >= num_opt_args_passed:
-                args.append(self.opt_args[key].default)
 
         result = self.func(*args, **kwargs)
 
@@ -540,7 +534,7 @@ class Command(object):
 
     @classmethod
     def from_func(cls, func, output_alg=None, short_names=None, opt_args=None,
-                  param_types=None, usage_msg=None):
+                  arg_types=None, usage_msg=None):
         """Get an instance of Command by introspecting func.
 
         func -- a callable object.
@@ -549,9 +543,9 @@ class Command(object):
         short_names -- a dict mapping long option names to single letters.
         opt_args -- a list of func's optional params that should be
             treated as optional command-line args instead of options.
-        param_types -- dict mapping optional param names to callables
-            that take a string as input and return an object of the
-            desired type (or raise a ValueError).
+        arg_types -- optional dict mapping arg names to callables that
+                     take a string as input and either return an object
+                     of the desired type or raise a ValueError.
         usage_msg -- an optional string explaining the command. Defaults
             to a processed version of func's docstring.
 
@@ -616,17 +610,35 @@ class Command(object):
             opts[arg] = Option(arg, summary, defaults[i], short_name)
 
         return cls(func, args, opt_args, opts, flags, output_alg,
-                   param_types, usage_msg)
+                   arg_types, usage_msg)
 
 class App(object):
     """A command-line application."""
 
-    def __init__(self, usage_msg=None, output_alg=None):
+    def __init__(self, usage_msg=None, arg_types=None, output_alg=None):
         """Create an App.
 
         usage_msg -- optional string explaining this App to an end-user.
-            PEP 257 says docstrings should be usable as a command-line
-            module's usage statement, so this is usually __doc__.
+                     PEP 257 says docstrings should be usable as a
+                     command-line module's usage statement, so this is
+                     usually __doc__.
+
+        arg_types -- optional dict mapping arg names to callables that
+                     take a string as input and either return an object
+                     of the desired type or raise a ValueError.
+
+        output_alg -- optional callable that takes the return value of a
+                      command func and displays a representation thereof
+                      to standard output.
+
+                      GRIPE Possibly a horrible idea; it might be much
+                      better to just have commands handle their own
+                      output. The thought was that it might make
+                      displaying custom types an App works with simpler,
+                      after retrieval/creation/editing/what-have-you.
+                      Really this is just a general hook, which *could*
+                      be used for display - might there be other legit
+                      uses for it?
 
         """
 
@@ -657,7 +669,7 @@ class App(object):
         self._dec_short_names = None
         self._dec_opt_args = None
         self._dec_main_cmd = None
-        self._dec_param_types = None
+        self._dec_arg_types = None
         self._dec_usage_msg = None
 
     def _cmd_decorator(self, func):
@@ -691,11 +703,11 @@ class App(object):
 
         short_names = self._dec_short_names
         opt_args = self._dec_opt_args
-        param_types = self._dec_param_types
+        arg_types = self._dec_arg_types
         usage_msg = self._dec_usage_msg
 
         cmd = Command.from_func(func, output_alg, short_names, opt_args,
-                                param_types, usage_msg)
+                                arg_types, usage_msg)
         if self._dec_main_cmd is True:
             # This is the main command.
             self.main_cmd = cmd
@@ -707,13 +719,13 @@ class App(object):
         self._dec_output_alg = None
         self._dec_short_names = None
         self._dec_opt_args = None
-        self._dec_param_types = None
+        self._dec_arg_types = None
         self._dec_usage_msg = None
 
         return func
 
     def main(self, func=None, output_alg=None, short_names=None,
-             opt_args=None, param_types=None):
+             opt_args=None, arg_types=None):
         """Decorator to make func the main command for this app.
 
         All arguments to it *must* be passed as keyword args, like so:
@@ -740,7 +752,7 @@ class App(object):
             letters that can be used as short names.
         opt_args -- list of func's optional params that should be
             treated as optional command-line args instead of options.
-        param_types -- dict mapping optional param names to callables
+        arg_types -- dict mapping optional param names to callables
             that take a string as input and return an object of the
             desired type (or raise a ValueError).
 
@@ -748,13 +760,13 @@ class App(object):
 
         default_args_passed = False
         if (output_alg is not None or short_names is not None or
-            opt_args is not None or param_types is not None):
+            opt_args is not None or arg_types is not None):
             default_args_passed = True
 
         self._dec_output_alg = output_alg
         self._dec_short_names = short_names
         self._dec_opt_args = opt_args
-        self._dec_param_types = param_types
+        self._dec_arg_types = arg_types
 
         self._dec_main_cmd = True
 
@@ -771,7 +783,7 @@ class App(object):
             return self._cmd_decorator(func)
 
     def command(self, func=None, output_alg=None, short_names=None,
-                opt_args=None, param_types=None, usage_msg=None):
+                opt_args=None, arg_types=None, usage_msg=None):
         """Decorator to mark func as a command.
 
         All arguments to it *must* be passed as keyword args, like so:
@@ -793,7 +805,7 @@ class App(object):
             letters that can be used as short names.
         opt_args -- list of func's optional params that should be
             treated as optional command-line args instead of options.
-        param_types -- dict mapping optional param names to callables
+        arg_types -- dict mapping optional param names to callables
             that take a string as input and return an object of the
             desired type (or raise a ValueError).
         usage_msg -- explanation of how to use the command. Defaults
@@ -806,13 +818,13 @@ class App(object):
         default_args_passed = False
         if (usage_msg is not None or output_alg is not None or
             short_names is not None or opt_args is not None or
-            param_types is not None):
+            arg_types is not None):
             default_args_passed = True
 
         self._dec_output_alg = output_alg
         self._dec_short_names = short_names
         self._dec_opt_args = opt_args
-        self._dec_param_types = param_types
+        self._dec_arg_types = arg_types
         self._dec_usage_msg = usage_msg
 
         self._dec_main_cmd = False
@@ -829,11 +841,11 @@ class App(object):
             # Decorate func and return the result.
             return self._cmd_decorator(func)
 
-    def make_global_opts(self, module_globals, var_types):
+    def make_global_opts(self, module_globals, arg_types):
         """Set up our global options from module_globals."""
 
         self.module_globals = module_globals
-        self.global_opt_types = var_types
+        self.global_opt_types = arg_types
 
         # Store only the module's public global variables as options.
         # GRIPE This is the step that's likely to go wrong, and is relatively

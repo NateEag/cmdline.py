@@ -19,14 +19,14 @@ panic = False
 rand_val = 123
 
 # Create global command options from module settings.
-app.make_global_opts(globals(), var_types={'rand_val': int})
+app.make_global_opts(globals(), arg_types={'rand_val': int})
 
 # Set up a few commands.
 @app.command(usage_msg='Do absolutely nothing.')
 def stub():
     pass
 
-@app.command(param_types={'times': int})
+@app.command(arg_types={'times': int})
 def foobar(times=1):
     """Return 'foobar'.
 
@@ -40,7 +40,7 @@ def foobar(times=1):
 # the short name override feature.
 @app.command(opt_args=['greeting'],
              short_names={'yell': 'u'},
-             param_types={'reps': int})
+             arg_types={'reps': int})
 def greet(greeting='Hello, world', punctuation='!', reps=1, sep=os.linesep,
           yell=False):
     """Return a simple greeting.

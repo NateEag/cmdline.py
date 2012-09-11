@@ -31,3 +31,5 @@
 2012-09-10 Fill each paragraph of a Command's help message separately. Improves readability significantly.
 
 2012-09-10 Preserved indented blocks in docstrings exactly as they were written when creating help messages.
+
+2012-09-11 Renamed param_types to arg_types, as it's shorter.

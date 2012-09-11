@@ -23,13 +23,13 @@ panic = False
 rand_val = 123
 
 # Create global command options from module settings.
-app.make_global_opts(globals(), var_types={'rand_val': int})
+app.make_global_opts(globals(), arg_types={'rand_val': int})
 
 # The default short name of 'y' for 'yell' is better. We use 'u' only to test
 # the short name override feature.
 @app.main(opt_args=['greeting'],
           short_names={'yell': 'u'},
-          param_types={'reps': int})
+          arg_types={'reps': int})
 def greet(greeting='Hello, world', punctuation='!', reps=1, sep=os.linesep,
           yell=False):
     """Return a simple greeting.
