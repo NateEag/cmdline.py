@@ -155,9 +155,6 @@ class Arg(object):
 class Option(Arg):
     """An option for a command-line app."""
 
-    # GRIPE Options really are not a kind of argument. It extends Arg
-    # to keep things DRY, which suggests I have misnamed something here.
-
     def __init__(self, name, summary, default, short_name=None):
         self.name = name
         self.default = default
@@ -165,7 +162,7 @@ class Option(Arg):
         self.short_name = name[0] if short_name is None else short_name
 
     def format_name(self):
-        """Return a string of the names this option can be set with."""
+        """Return this Option's name(s) as a string."""
 
         result = ''
         if self.short_name is not None:
@@ -993,6 +990,7 @@ class App(object):
         if argv is None:
             argv = sys.argv
 
+        show_usage = False
         try:
             self._do_cmd(argv)
         except UnknownCommand as exc:
@@ -1001,13 +999,20 @@ class App(object):
             else:
                 print >> sys.stderr, "ERROR: '%s' is not a known command." % exc.input
                 self.show_avail_cmds(sys.stderr)
-        except InvalidInput as exc:
-            if isinstance(exc, BadArgCount):
-                print >> sys.stderr, 'ERROR: You must enter a valid number of inputs.'
-            else:
-                print >> sys.stderr, 'Invalid input: %s' % exc.input
+        except BadArgCount as exc:
+            print >> sys.stderr, 'ERROR: You must enter a valid number of inputs.'
 
-            self.show_usage()
+            show_usage = True
+        except InvalidInput as exc:
+            print >> sys.stderr, 'ERROR: %s is invalid input.' % exc.input
+
+            show_usage = True
+
+        if show_usage is True:
+            if self.cmd is not None:
+                self.cmd.show_usage(self.name)
+            else:
+                self.show_usage()
 
 def print_str(obj):
     """Basic output algorithm for command-line programs.
