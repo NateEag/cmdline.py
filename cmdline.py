@@ -390,7 +390,8 @@ class Command(object):
                 elif opt not in self.opts:
                     raise UnknownOption(opt)
 
-                if opt in self.param_types:
+                if (self.param_types is not None and
+                    opt in self.param_types):
                     val = self.param_types[opt](val)
 
                 kwargs[opt] = val
