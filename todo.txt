@@ -2,35 +2,39 @@
 
 2012-05-09 Let Bob, Josh, Spencer, and Nate M. know when the first release is pushed to GitHub.
 
-2012-09-10 Detect newline char(s) used in a docstring when parsing it. I've used a hardcoded '\n' in some places, and os.linesep in others, both of which can fail for valid inputs.
+2012-09-07 Make '--' specify that there are no options after it, and that all remaining inputs should be treated as args.
 
-2012-09-10 Support Tab-indented code (mainly a docstring parsing problem).
+2012-05-07 Decide how to avoid raising InvalidShortName exceptions when multiple func args begin with the same letter. We could make shortnaming an "only if you asked" feature, or not give short names when they would collide (perhaps defaulting to first available character in the varname).
+
+2012-05-07 Consider fixing '-' option behavior. Many apps accept multiple short names after a hyphen, if at most the last one requires a value. Similarly, we could accept values immediately after a shortnamed option, as many *nix programs do.
+
+2012-09-02 Rename default_args_passed to kwargs_passed. It's an internal variable for a few methods, and the current name is actively wrong.
 
 2012-08-22 Try to format usage message for device it's being displayed on (i.e., try to detect terminal width).
 
-2012-09-07 Make '--' specify that there are no options after it, and that all remaining inputs should be treated as args.
-
-2012-09-07 Consider trying to evaluate python inside backticks in docstrings. That would let things like `os.linesep` display the actual character in help messages. This is probably too clever - it would add a lot of complexity for little gain. Another option - match param name to actual param and substitute the default value?
-
-2012-05-15 Consider adding an @app.flag decorator. This would let us support weird flags like '--version', which traditionally make an app bail out early and ignore all other inputs.
+2012-05-15 Consider adding an @app.flag decorator. This would let us support weird flags like '--version', which traditionally make an app bail out early and ignore all other inputs. This would be a general-case version of what help does.
 
 2012-09-03 Fix bug where options are interpreted as commands if they come after '--help'.
-
-2012-09-11 Consider adding opt-in type inference for options; where there's a default value, the default probably tells us what type that option should be. Getting a callable to convert to that type might be tricky, but so it goes. Could be a dumb idea.
-
-2012-09-11 Write a test suite, once I've managed to get some feedback about what features should be enhanced and which ones should be booted violently.
-
-2012-09-11 Consider whether there's any validity to type guessing. "1" as an input looks like it should be an int, so we can just make it that, without being explicitly told "This should be an int." It's probably too implicit, but I wonder if there are cases where it might be useful, and don't want to lose the idea until I've had a chance to think about it more.
 
 2012-05-16 See if there's a cleaner/more flexible way to support global options. My current approach feels clunky - maybe I shouldn't be assuming we'll only be passed globals()?
 
 2012-09-10 Add support for global options in help messages. Probably done by parsing App()'s usage_msg arg for param summaries and correlating them with specified global options.
 
-2012-09-10 Add help paging of some kind. A long help document makes you scroll to read, which is annoying.
-
 2012-05-04 Support config files.
 
-2012-05-04 Consider renaming @app.main to @app (is it cleaner?).
+2012-09-10 Detect newline char(s) used in a docstring when parsing it. I've used a hardcoded '\n' in some places, and os.linesep in others, both of which can fail for valid inputs.
+
+2012-09-10 Support Tab-indented code (mainly a docstring parsing problem).
+
+2012-09-07 Consider trying to evaluate python inside backticks in docstrings. That would let things like `os.linesep` display the actual character in help messages. This is probably too clever - it would add a lot of complexity for little gain. Another option - match param name to actual param and substitute the default value?
+
+2012-09-11 Consider adding opt-in type inference for options; where there's a default value, the default probably tells us what type that option should be. Getting a callable to convert to that type might be tricky, but so it goes. Could be a dumb idea.
+
+2012-09-11 Consider whether there's any validity to type guessing. "1" as an input looks like it should be an int, so we can just make it that, without being explicitly told "This should be an int." It's probably too implicit, but I wonder if there are cases where it might be useful, and don't want to lose the idea until I've had a chance to think about it more.
+
+2012-09-11 Write a test suite, once I've managed to get some feedback about what features should be enhanced and which ones should be booted violently.
+
+2012-09-10 Add help paging of some kind. A long help document makes you scroll to read, which is annoying.
 
 2012-05-08 Support app defaults for param_type and short_names.
 
@@ -38,20 +42,10 @@
 
 2012-05-08 Consider adding a few useful type converters. A Python implementation of approxidate would be nice (and should be its own module): https://github.com/git/git/blob/master/date.c
 
-2012-08-31 Make sure make_global_opts() actually uses its param_types arg (assuming it still exists).
-
 2012-05-04 Convert DEBUG and GRIPE comments into actions.
 
 2012-05-08 Consider making this a wrapper around one of the existing optparsing libraries, which could save heavy lifting in building powerful apps. Doing it earlier would have saved more effort, but still worth looking at.
 
-2012-05-07 Decide whether multiple options/flags that start with the same letter should automatically cause InvalidShortName exceptions. They currently do, which could be quite surprising. Maybe 'generate short names' should be some sort of opt-in toggle?
-
-2012-05-07 Consider fixing '-' option behavior. Many apps accept multiple short names after a hyphen, if at most the last one requires a value.
-
-2012-09-02 Rename default_args_passed to kwargs_passed. It's an internal variable for a few methods, and the current name is actively wrong.
-
-2012-09-03 Rename param_types to arg_types. It's shorter and clearer, since we convert command arguments to specific types, not params generally.
-
-2012-05-07 Consider support for commands that accept *args (maybe **kwargs?).
+2012-05-07 Think about whether we can support commands that accept an indefinite number of args.
 
 2012-09-10 Port to Python 3 - if all the preceding items are handled, it means someone is using this thing (even if it's just me), and they may want to use a framework to help them with it.

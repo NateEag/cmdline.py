@@ -41,8 +41,7 @@ def foobar(reps=1):
 # The default short name of 'y' for 'yell' is better. We use 'u' only to test
 # the short name override feature.
 @app.command(opt_args=['greeting'],
-             short_names={'yell': 'u'},
-             arg_types={'reps': int})
+             short_names={'yell': 'u'})
 def greet(greeting='Hello, world', punctuation='!', reps=1, sep=os.linesep,
           yell=False):
     """Return a simple greeting.
