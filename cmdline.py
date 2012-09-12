@@ -339,6 +339,29 @@ class Command(object):
         usage_msg = self._format_help_msg(app_name)
         print >> stream, usage_msg
 
+    def _convert_type(self, name, value):
+        """Return instance of type `value` should be, based on `name`.
+
+        This is a convenience method driven by self.arg_types.
+
+        name -- the name of the input to be converted.
+        value -- the value passed from the user for the named input.
+
+        """
+
+        if self.arg_types is not None and name in self.arg_types:
+            try:
+                value = self.arg_types[name](value)
+            except ValueError as exc:
+                # GRIPE This may not be the best way to pass info up to our
+                # error handler, but it's better than killing the stack trace
+                # by raising a new Exception object.
+                exc.value = value
+                exc.input = name
+                raise
+
+        return value
+
     def run(self, inputs):
         """Run this command with `inputs` as our argv array."""
 
@@ -351,7 +374,6 @@ class Command(object):
         num_inputs = len(inputs)
         i = 0
         arg_idx = 0
-        opt_arg_names = [key for key in self.opt_args]
         opt_arg_idx = 0
         while i < num_inputs:
             item = inputs[i]
@@ -387,26 +409,17 @@ class Command(object):
                 elif opt not in self.opts:
                     raise UnknownOption(opt)
 
-                if (self.arg_types is not None and
-                    opt in self.arg_types):
-                    val = self.arg_types[opt](val)
-
-                kwargs[opt] = val
+                kwargs[opt] = self._convert_type(opt, val)
             else:
                 # Item is an arg.
                 if arg_idx < num_args:
                     cur_arg = self.args[arg_idx]
                     arg_idx += 1
                 elif opt_arg_idx < num_opt_args:
-                    opt_arg_name = opt_arg_names[opt_arg_idx]
+                    cur_arg = self.opt_args[opt_arg_idx]
                     opt_arg_idx += 1
-                    cur_arg = self.opt_args[opt_arg_name]
 
-                if (self.arg_types is not None and
-                    cur_arg.name in self.arg_types):
-                    item = self.arg_types[cur_arg.name](item)
-
-                args.append(item)
+                args.append(self._convert_type(cur_arg.name, item))
 
             i += 1
 
@@ -615,7 +628,7 @@ class Command(object):
 class App(object):
     """A command-line application."""
 
-    def __init__(self, usage_msg=None, arg_types=None, output_alg=None):
+    def __init__(self, usage_msg=None, arg_types={}, output_alg=None):
         """Create an App.
 
         usage_msg -- optional string explaining this App to an end-user.
@@ -631,19 +644,20 @@ class App(object):
                       command func and displays a representation thereof
                       to standard output.
 
-                      GRIPE Possibly a horrible idea; it might be much
-                      better to just have commands handle their own
-                      output. The thought was that it might make
-                      displaying custom types an App works with simpler,
-                      after retrieval/creation/editing/what-have-you.
-                      Really this is just a general hook, which *could*
-                      be used for display - might there be other legit
-                      uses for it?
+                      GRIPE Likely a bad idea; it might be much better
+                      to just have commands handle their own output. The
+                      thought was that it might make displaying custom
+                      types an App works with simpler, after
+                      retrieval/creation/editing/what-have-you. Really
+                      this is just a general hook, which *could* be used
+                      for display - might there be other legit uses for
+                      it?
 
         """
 
         self.cmd = None
 
+        self.arg_types = arg_types
         self.output_alg = output_alg
         self.main_cmd = None
         self.commands = {}
@@ -703,8 +717,13 @@ class App(object):
 
         short_names = self._dec_short_names
         opt_args = self._dec_opt_args
-        arg_types = self._dec_arg_types
         usage_msg = self._dec_usage_msg
+
+        # Merge self.arg_types with this command's arg_types, deferring to the
+        # command-specific dict.
+        arg_types = dict(self.arg_types)
+        if self._dec_arg_types is not None:
+            arg_types.update(self._dec_arg_types)
 
         cmd = Command.from_func(func, output_alg, short_names, opt_args,
                                 arg_types, usage_msg)
@@ -1013,6 +1032,12 @@ class App(object):
                 self.show_avail_cmds(sys.stderr)
         except BadArgCount as exc:
             print >> sys.stderr, 'ERROR: You must enter a valid number of inputs.'
+
+            show_usage = True
+        except ValueError as exc:
+            msg = 'ERROR: "%s" is not a valid value for "%s".' % \
+                  (exc.value, exc.input)
+            print >> sys.stderr, msg
 
             show_usage = True
         except InvalidInput as exc:

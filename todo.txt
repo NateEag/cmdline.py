@@ -1,5 +1,3 @@
-2012-09-03 Add arg_types dict to App(), defaulting to None. It should be used to default param_types for each command, after being merged with any param_types that were specified for that command.
-
 2012-05-04 Handle exceptions properly. Right now they just print a useless message. They should explain the error and give a usage hint (multi-command programs should be smart about whether a valid command was used). Note that this is how we'll validate type mappings (catch ValueErrors, or some subclass thereof). This should include handling an invalid number of args correctly.
 
 2012-05-09 Let Bob, Josh, Spencer, and Nate M. know when the first release is pushed to GitHub.

@@ -12,7 +12,9 @@ import os
 # Local imports.
 import cmdline
 
-app = cmdline.App(usage_msg=__doc__, output_alg=cmdline.print_str)
+app = cmdline.App(usage_msg=__doc__,
+                  arg_types={'reps': int},
+                  output_alg=cmdline.print_str)
 
 # Module variables.
 panic = False
@@ -26,15 +28,15 @@ app.make_global_opts(globals(), arg_types={'rand_val': int})
 def stub():
     pass
 
-@app.command(arg_types={'times': int})
-def foobar(times=1):
+@app.command
+def foobar(reps=1):
     """Return 'foobar'.
 
-    times -- number of repetitions of foobar to return.
+    reps -- number of repetitions of foobar to return.
 
     """
 
-    return 'foobar' * times
+    return 'foobar' * reps
 
 # The default short name of 'y' for 'yell' is better. We use 'u' only to test
 # the short name override feature.
