@@ -39,17 +39,17 @@ class BadArgCount(InvalidInput):
     """Indicates that an invalid number of args were given.
 
     self.cmd -- name of command.
-    self.min_required -- number of args required.
-    self.max_allowed -- number of args allowed.
+    self.min_argc -- number of args required.
+    self.max_argc -- number of args allowed.
     self.num_given -- number of args given.
 
     """
 
-    def __init__(self, cmd, min_required, max_allowed, num_given):
+    def __init__(self, cmd, min_argc, max_argc, num_given):
 
         self.input = cmd
-        self.min_required = min_required
-        self.max_allowed = max_allowed
+        self.min_argc = min_argc
+        self.max_argc = max_argc
         self.num_given = num_given
 
 class UnknownCommand(InvalidInput):
@@ -278,10 +278,6 @@ class Command(object):
         sep = os.linesep * 2
         usage_msg += sep.join(usage_paras)
 
-        # print self.usage_msg.split('\n' * 2)
-
-        # return ''
-
         input_summaries = []
         if len(self.args) > 0 or len(self.opt_args) > 0:
             arg_summaries = []
@@ -424,7 +420,7 @@ class Command(object):
             i += 1
 
         num_args_passed = len(args)
-        if num_args_passed < num_args or num_args > max_args:
+        if num_args_passed < num_args or num_args_passed > max_args:
             raise BadArgCount(self.name, num_args, max_args, num_args_passed)
 
         result = self.func(*args, **kwargs)
@@ -1011,6 +1007,19 @@ class App(object):
         else:
             self.cmd.run(args)
 
+    def _show_err_msg(self, msg):
+        """Display an error message to `sys.stderr`."""
+
+        print >> sys.stderr, 'ERROR: %s' % msg
+
+        if self.cmd is not None:
+            help_msg = "Run '%s help %s' for usage message." % (self.name,
+                                                                self.cmd.name)
+        else:
+            help_msg = "Run '%s help' for usage message." % self.name
+
+        print >> sys.stderr, help_msg
+
     def run(self, argv=None):
         """Run this app with argv as command-line input.
 
@@ -1021,35 +1030,38 @@ class App(object):
         if argv is None:
             argv = sys.argv
 
-        show_usage = False
+        err_msg = None
         try:
             self._do_cmd(argv)
         except UnknownCommand as exc:
+            # We want to display the available commands in this case, so we
+            # don't populate err_msg.
             if exc.input is None:
-                print >> sys.stderr, 'ERROR: You must enter a command.'
+                msg = 'You must enter a command.'
             else:
-                print >> sys.stderr, "ERROR: '%s' is not a known command." % exc.input
-                self.show_avail_cmds(sys.stderr)
+                msg = "'%s' is not a known command." % exc.input
+
+            print >> sys.stderr, 'ERROR: %s' % msg
+            self.show_avail_cmds(sys.stderr)
         except BadArgCount as exc:
-            print >> sys.stderr, 'ERROR: You must enter a valid number of inputs.'
-
-            show_usage = True
-        except ValueError as exc:
-            msg = 'ERROR: "%s" is not a valid value for "%s".' % \
-                  (exc.value, exc.input)
-            print >> sys.stderr, msg
-
-            show_usage = True
-        except InvalidInput as exc:
-            print >> sys.stderr, 'ERROR: %s is invalid input.' % exc.input
-
-            show_usage = True
-
-        if show_usage is True:
-            if self.cmd is not None:
-                self.cmd.show_usage(self.name)
+            arg_str = 'arg' if exc.max_argc is 1 else 'args'
+            if exc.num_given > exc.max_argc:
+                err_msg = "'%s' takes at most %s %s." % (exc.input,
+                                                         exc.max_argc,
+                                                         arg_str)
             else:
-                self.show_usage()
+                err_msg = 'You must enter at least %s %s.' % (exc.min_argc,
+                                                              arg_str)
+        except ValueError as exc:
+            err_msg = "'%s' is not a valid value for '%s'." % (exc.value,
+                                                               exc.input)
+        except UnknownOption as exc:
+            err_msg = "'%s' is not a known option." % exc.input
+        except InvalidInput as exc:
+            err_msg = "'%s' is invalid input." % exc.input
+
+        if err_msg is not None:
+            self._show_err_msg(err_msg)
 
 def print_str(obj):
     """Basic output algorithm for command-line programs.
