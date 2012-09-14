@@ -39,3 +39,5 @@
 2012-09-11 Handled ValueError on arg_types type conversion, outputting a basic error message to the effect that the input was not valid.
 
 2012-05-04 Got semi-working handling for the expected error cases. Overall exception handlers are the jurisdiction of app developers, so the default excepthook is left in place.
+
+2012-09-14 Wrote a basic readme.

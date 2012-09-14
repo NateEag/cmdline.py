@@ -1,7 +1,3 @@
-2012-09-13 Write a basic readme, probably in reStructuredText because that's what I like.
-
-2012-05-09 Let Bob, Josh, Spencer, and Nate M. know when the first release is pushed to GitHub.
-
 2012-09-07 Make '--' specify that there are no options after it, and that all remaining inputs should be treated as args.
 
 2012-05-07 Decide how to avoid raising InvalidShortName exceptions when multiple func args begin with the same letter. We could make shortnaming an "only if you asked" feature, or not give short names when they would collide (perhaps defaulting to first available character in the varname).
@@ -51,6 +47,8 @@
 2012-05-08 Consider adding a few useful type converters. A Python implementation of approxidate would be nice (and should be its own module): https://github.com/git/git/blob/master/date.c
 
 2012-05-04 Convert DEBUG and GRIPE comments into actions.
+
+2012-09-14 Package this as a proper Python module and submit it to PyPI. This really should not happen until it's semi-stable, a real program or two has been written with it, and it has a test suite.
 
 2012-05-08 Consider making this a wrapper around one of the existing optparsing libraries, which could save heavy lifting in building powerful apps. Doing it earlier would have saved more effort, but still worth looking at.
 
