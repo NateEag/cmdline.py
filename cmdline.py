@@ -130,17 +130,17 @@ class Arg(object):
     def format_summary(self, width=70):
         """Return a formatted summary of `self`.
 
-        Return `None` if no summary is available.
+        Return `self.format_name()` if no summary is available.
 
         width -- Optional max width of a line in result. Defaults to 70.
 
         """
 
-        if self.summary is None:
-            return None
-
         summary = ''
         name = self.format_name()
+
+        if self.summary is None:
+            return '  ' + name
 
         for line in self.summary.splitlines():
             if line is not '':
@@ -225,7 +225,7 @@ class Command(object):
         summary = None
         if usage_msg is not None:
             summary = self.usage_msg
-            end_idx = summary.find('. ')
+            end_idx = summary.find('.')
             if end_idx > 0:
                 summary = summary[0:end_idx + 1]
         self.summary = summary
@@ -246,37 +246,41 @@ class Command(object):
 
             self.short_names[value.short_name] = key
 
-    def _format_help_msg(self, app_name, width=70):
+    def _format_help_msg(self, app_name, is_main_cmd, width=70):
         """Return a help string formatted to `width` chars.
 
         app_name -- name of app this Command is running within.
+        is_main_cmd -- whether this is the main command for an app.
         width -- optional max # of chars in a line. Defaults to 70.
 
         """
 
-        example = 'Usage:%s%s' % (os.linesep, app_name + ' ' + self.name)
+        # GRIPE cmd_name is at best a misleading name.
+        cmd_name = app_name + ' ' + self.name if not is_main_cmd else app_name
+        example = 'Usage:%s%s' % (os.linesep, cmd_name)
         usage_msg = ''
         usage_paras = []
-        for paragraph in self.usage_msg.split('\n' * 2):
-            indent_level = 0
-            for char in paragraph:
-                if char == ' ':
-                    indent_level += 1
-                    break
+        if self.usage_msg is not None:
+            for paragraph in self.usage_msg.split('\n' * 2):
+                indent_level = 0
+                for char in paragraph:
+                    if char == ' ':
+                        indent_level += 1
+                        break
 
-            if indent_level == 0:
-                usage_paras.append(textwrap.fill(paragraph, width))
-            else:
-                # As there was indentation, we leave the lines exactly
-                # as they were - could be a sample code block or similar.
-                # GRIPE This could make help messages hard to read sometimes.
-                # Oh well.
-                usage_paras.append(paragraph)
+                if indent_level == 0:
+                    usage_paras.append(textwrap.fill(paragraph, width))
+                else:
+                    # As there was indentation, we leave the lines exactly
+                    # as they were - could be a sample code block or similar.
+                    # GRIPE This could make help messages hard to read sometimes.
+                    # Oh well.
+                    usage_paras.append(paragraph)
 
-            indent_level = 0
+                indent_level = 0
 
-        sep = os.linesep * 2
-        usage_msg += sep.join(usage_paras)
+            sep = os.linesep * 2
+            usage_msg += sep.join(usage_paras)
 
         input_summaries = []
         if len(self.args) > 0 or len(self.opt_args) > 0:
@@ -314,16 +318,20 @@ class Command(object):
                 opt_summaries.insert(0, 'Options:')
                 input_summaries.extend(opt_summaries)
 
-        input_summaries.insert(0, usage_msg)
+        if usage_msg:
+            input_summaries.insert(0, usage_msg)
+
         sep = os.linesep * 2
         usage_msg = sep.join(input_summaries)
 
         return os.linesep.join([example + os.linesep, usage_msg])
 
-    def show_usage(self, app_name, stream=None):
+    def show_usage(self, app_name, is_main_cmd=False, stream=None):
         """Display this Command's usage message.
 
         app_name -- name of the app Comand is being run from.
+        is_main_cmd -- whether this is the main command for an app.
+                       Defaults to False.
         stream -- optional file-like output stream. Default is stdout.
 
         """
@@ -332,7 +340,7 @@ class Command(object):
             stream = sys.stdout
 
         # DEBUG We should figure out how wide the target output device is.
-        usage_msg = self._format_help_msg(app_name)
+        usage_msg = self._format_help_msg(app_name, is_main_cmd)
         print >> stream, usage_msg
 
     def _convert_type(self, name, value):
@@ -414,6 +422,8 @@ class Command(object):
                 elif opt_arg_idx < num_opt_args:
                     cur_arg = self.opt_args[opt_arg_idx]
                     opt_arg_idx += 1
+                elif num_args == 0 and num_opt_args == 0:
+                    raise BadArgCount(self.name, num_args, max_args, 1)
 
                 args.append(self._convert_type(cur_arg.name, item))
 
@@ -572,6 +582,7 @@ class Command(object):
 
         # Grab any param summary from the docstring.
         docstr = inspect.getdoc(func)
+        summaries = {}
         if docstr is not None:
             # GRIPE We should probably let you pass param summaries from
             # outside.
@@ -895,7 +906,9 @@ class App(object):
         if len(self.commands):
             self.show_avail_cmds(stream)
         elif self.main_cmd is not None:
-            self.main_cmd.show_usage(self.name, stream)
+            # GRIPE is_main_cmd is a wart. There must be a cleaner way to
+            # avoid displaying command name as part of the example.
+            self.main_cmd.show_usage(self.name, is_main_cmd=True, stream=stream)
 
     def show_avail_cmds(self, stream=None):
         """Display this App's commands.

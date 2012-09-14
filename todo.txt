@@ -1,3 +1,5 @@
+2012-09-13 Write a basic readme, probably in reStructuredText because that's what I like.
+
 2012-05-09 Let Bob, Josh, Spencer, and Nate M. know when the first release is pushed to GitHub.
 
 2012-09-07 Make '--' specify that there are no options after it, and that all remaining inputs should be treated as args.
@@ -15,6 +17,12 @@
 2012-05-15 Consider adding an @app.flag decorator. This would let us support weird flags like '--version', which traditionally make an app bail out early and ignore all other inputs. This would be a general-case version of what help does.
 
 2012-09-03 Fix bug where options are interpreted as commands if they come after '--help'.
+
+2012-09-14 Fix parsing of command summary - it currently assumes a '.' indicates the end of the summary, which could fail in some cases.
+
+2012-09-14 Fix bug where main command is referred to by command name when a BadArgCount is caught. This is one of several warts that suggests main commands might be a subclass - they need more data than regular ones.
+
+2012-09-14 Support portable option prefixes - Windows uses '/', for instance.
 
 2012-05-16 See if there's a cleaner/more flexible way to support global options. My current approach feels clunky - maybe I shouldn't be assuming we'll only be passed globals()?
 
@@ -48,4 +56,4 @@
 
 2012-05-07 Think about whether we can support commands that accept an indefinite number of args.
 
-2012-09-10 Port to Python 3 - if all the preceding items are handled, it means someone is using this thing (even if it's just me), and they may want to use a framework to help them with it.
+2012-09-10 Port to Python 3 - if all the preceding items are handled, it means someone is using this thing (even if it's just me), and they may want to have it around for the next version of the language.
