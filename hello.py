@@ -2,10 +2,8 @@
 
 """A command for greeting things.
 
-When run with a single arg, prints the arg to stdout.
-
-Hopefully, details about options and a useful command format diagram
-will be forthcoming.
+This serves as an incomplete, ad-hoc illustration of how cmdline.py
+mostly works. As a result, it is not very pretty.
 
 """
 

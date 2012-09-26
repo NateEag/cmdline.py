@@ -1,18 +1,14 @@
-2012-09-07 Make '--' specify that there are no options after it, and that all remaining inputs should be treated as args.
+2012-09-26 Get type conversion of positional args working.
+
+2012-09-26 Make passing the same option multiple times an error. Allowing it is dangerous.
 
 2012-05-07 Decide how to avoid raising InvalidShortName exceptions when multiple func args begin with the same letter. We could make shortnaming an "only if you asked" feature, or not give short names when they would collide (perhaps defaulting to first available character in the varname).
-
-2012-05-07 Consider fixing '-' option behavior. Many apps accept multiple short names after a hyphen, if at most the last one requires a value. Similarly, we could accept values immediately after a shortnamed option, as many *nix programs do.
 
 2012-09-02 Rename default_args_passed to kwargs_passed. It's an internal variable for a few methods, and the current name is actively wrong.
 
 2012-08-22 Try to format usage message for device it's being displayed on (i.e., try to detect terminal width).
 
 2012-09-12 Support status exit codes. It would make a ton of sense to ditch my stupid optional printing of function return value and to let people use function's return value as an exit code. I should figure out if there's a standard return code for "invalid input" and use that when we're given bad input.
-
-2012-05-15 Consider adding an @app.flag decorator. This would let us support weird flags like '--version', which traditionally make an app bail out early and ignore all other inputs. This would be a general-case version of what help does.
-
-2012-09-03 Fix bug where options are interpreted as commands if they come after '--help'.
 
 2012-09-14 Fix parsing of command summary - it currently assumes a '.' indicates the end of the summary, which could fail in some cases.
 
@@ -25,6 +21,8 @@
 2012-09-10 Add support for global options in help messages. Probably done by parsing App()'s usage_msg arg for param summaries and correlating them with specified global options.
 
 2012-05-04 Support config files.
+
+2012-09-22 Add support for rethrowing all caught exceptions. This would make debugging the cmdline.py library easier.
 
 2012-09-10 Detect newline char(s) used in a docstring when parsing it. I've used a hardcoded '\n' in some places, and os.linesep in others, both of which can fail for valid inputs.
 
@@ -44,7 +42,7 @@
 
 2012-05-12 Consider storing param_type functions directly in the Option and Arg classes. It might clear things up a bit.
 
-2012-05-08 Consider adding a few useful type converters. A Python implementation of approxidate would be nice (and should be its own module): https://github.com/git/git/blob/master/date.c
+2012-05-08 Consider adding a few useful type converters. A Python implementation of approxidate would be nice (https://github.com/git/git/blob/master/date.c), as would a file path converter.
 
 2012-05-04 Convert DEBUG and GRIPE comments into actions.
 
@@ -54,4 +52,4 @@
 
 2012-05-07 Think about whether we can support commands that accept an indefinite number of args.
 
-2012-09-10 Port to Python 3 - if all the preceding items are handled, it means someone is using this thing (even if it's just me), and they may want to have it around for the next version of the language.
+2012-09-10 Port to Python 3 - if all the preceding items are handled, it means someone is using this thing (even if it's just me), and they may want to have it around for the next version of the language. In 3, we could probably use arg annotations to do type mappings.

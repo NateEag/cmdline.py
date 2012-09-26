@@ -18,6 +18,7 @@ app = cmdline.App(usage_msg=__doc__,
 
 # Module variables.
 panic = False
+dummy = False
 rand_val = 123
 
 # Create global command options from module settings.

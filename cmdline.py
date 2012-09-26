@@ -116,16 +116,25 @@ class InvalidShortName(InvalidInput):
 class Arg(object):
     """An argument for a command-line app."""
 
-    def __init__(self, name, summary, default=None):
+    def __init__(self, name, summary, default=None, type_converter=None):
 
         self.name = name
         self.summary = summary
         self.default = default
+        self.type_converter = type_converter
 
     def format_name(self):
         """Return a string representing this argument's name."""
 
         return self.name
+
+    def convert_type(self, val):
+        """Return `val` after converting it to this Arg's type."""
+
+        if val is not None and self.type_converter is not None:
+            val = self.type_converter(val)
+
+        return val
 
     def format_summary(self, width=70):
         """Return a formatted summary of `self`.
@@ -155,22 +164,30 @@ class Arg(object):
 class Option(Arg):
     """An option for a command-line app."""
 
-    def __init__(self, name, summary, default, short_name=None):
+    def __init__(self, name, summary, default, short_name=None,
+                 type_converter=None):
         self.name = name
         self.default = default
         self.summary = summary
         self.short_name = name[0] if short_name is None else short_name
+        self.type_converter = type_converter
 
     def format_name(self):
         """Return this Option's name(s) as a string."""
 
         result = ''
         if self.short_name is not None:
-            result += '-%s/' % self.short_name
+            result += '-%s, ' % self.short_name
 
         result += '--%s' % self.name
 
         return result
+
+    @property
+    def is_flag(self):
+        """Return True if this Option is a flag. Return False otherwise."""
+
+        return type(self.default) is types.BooleanType
 
 class Command(object):
     """A sub-command in a command-line app.
@@ -188,23 +205,17 @@ class Command(object):
 
     # GRIPE You could argue that __init__ should actually just be
     # from_func. I'm not sure if you'd be right or not.
-    def __init__(self, func, args, opt_args, opts, flags, output_alg=None,
+    def __init__(self, func, args, opt_args, opts, output_alg=None,
                  arg_types=None, usage_msg=None, name=None):
         """Make a new Command.
 
         func -- callable that does the command's work.
         args -- list of required positional args for this command.
         opt_args -- list of optional positional args for this command.
-        opts -- list of options for this command. Options map a name to a
+        opts -- dict of options for this command. Options map a name to a
             (required) passed value (with an optional short name).
-        flags -- list of flags for this command. Flags are Booleans with a
-            short name and a long name. When set, flags invert their default
-            value.
         output_alg -- callable to display `func`'s return value.
             Defaults to None, as good *nix programs are silent by default.
-        arg_types -- optional dict mapping param names to callables
-            that take a string as input and return an object of the
-            desired type (or raise a ValueError).
         usage_msg -- Optional string explaining the command. Defaults to
             None.
         name -- Optional command name. If None, self.name is set by
@@ -217,9 +228,7 @@ class Command(object):
         self.args = args
         self.opt_args = opt_args
         self.opts = opts
-        self.flags = flags
         self.output_alg = output_alg
-        self.arg_types = arg_types
         self.usage_msg = usage_msg
 
         summary = None
@@ -238,200 +247,9 @@ class Command(object):
                                        value.name)
 
             self.short_names[value.short_name] = key
-        for key, value in self.flags.items():
-            if value.short_name in self.short_names:
-                raise InvalidShortName(self.name, value.short_name,
-                                       self.short_names[value.short_name],
-                                       value.name)
 
-            self.short_names[value.short_name] = key
-
-    def _format_help_msg(self, app_name, is_main_cmd, width=70):
-        """Return a help string formatted to `width` chars.
-
-        app_name -- name of app this Command is running within.
-        is_main_cmd -- whether this is the main command for an app.
-        width -- optional max # of chars in a line. Defaults to 70.
-
-        """
-
-        # GRIPE cmd_name is at best a misleading name.
-        cmd_name = app_name + ' ' + self.name if not is_main_cmd else app_name
-        example = 'Usage:%s%s' % (os.linesep, cmd_name)
-        usage_msg = ''
-        usage_paras = []
-        if self.usage_msg is not None:
-            for paragraph in self.usage_msg.split('\n' * 2):
-                indent_level = 0
-                for char in paragraph:
-                    if char == ' ':
-                        indent_level += 1
-                        break
-
-                if indent_level == 0:
-                    usage_paras.append(textwrap.fill(paragraph, width))
-                else:
-                    # As there was indentation, we leave the lines exactly
-                    # as they were - could be a sample code block or similar.
-                    # GRIPE This could make help messages hard to read sometimes.
-                    # Oh well.
-                    usage_paras.append(paragraph)
-
-                indent_level = 0
-
-            sep = os.linesep * 2
-            usage_msg += sep.join(usage_paras)
-
-        input_summaries = []
-        if len(self.args) > 0 or len(self.opt_args) > 0:
-            arg_summaries = []
-            for arg in self.args:
-                example += ' <%s>' % arg.name
-                summary = arg.format_summary()
-                if summary is not None:
-                    # Only explain inputs that have explanations.
-                    arg_summaries.append(summary)
-
-            for arg in self.opt_args:
-                example += ' [<%s>]' % arg.name
-                summary = arg.format_summary()
-                if summary is not None:
-                    arg_summaries.append(summary)
-
-            if len(arg_summaries) > 0:
-                arg_summaries.insert(0, 'Arguments:')
-                input_summaries.extend(arg_summaries)
-
-        if len(self.opts) > 0 or len(self.flags) > 0:
-            # GRIPE Storing flags and opts separately is looking dumb.
-            # I should probably merge them.
-            opts = dict(self.opts)
-            opts.update(self.flags)
-
-            opt_summaries = []
-            for opt in opts.values():
-                summary = opt.format_summary()
-                if summary is not None:
-                    opt_summaries.append(summary)
-
-            if len(opt_summaries) > 0:
-                opt_summaries.insert(0, 'Options:')
-                input_summaries.extend(opt_summaries)
-
-        if usage_msg:
-            input_summaries.insert(0, usage_msg)
-
-        sep = os.linesep * 2
-        usage_msg = sep.join(input_summaries)
-
-        return os.linesep.join([example + os.linesep, usage_msg])
-
-    def show_usage(self, app_name, is_main_cmd=False, stream=None):
-        """Display this Command's usage message.
-
-        app_name -- name of the app Comand is being run from.
-        is_main_cmd -- whether this is the main command for an app.
-                       Defaults to False.
-        stream -- optional file-like output stream. Default is stdout.
-
-        """
-
-        if stream is None:
-            stream = sys.stdout
-
-        # DEBUG We should figure out how wide the target output device is.
-        usage_msg = self._format_help_msg(app_name, is_main_cmd)
-        print >> stream, usage_msg
-
-    def _convert_type(self, name, value):
-        """Return instance of type `value` should be, based on `name`.
-
-        This is a convenience method driven by self.arg_types.
-
-        name -- the name of the input to be converted.
-        value -- the value passed from the user for the named input.
-
-        """
-
-        if self.arg_types is not None and name in self.arg_types:
-            try:
-                value = self.arg_types[name](value)
-            except ValueError as exc:
-                # GRIPE This may not be the best way to pass info up to our
-                # error handler, but it's better than killing the stack trace
-                # by raising a new Exception object.
-                exc.value = value
-                exc.input = name
-                raise
-
-        return value
-
-    def run(self, inputs):
-        """Run this command with `inputs` as our argv array."""
-
-        args = []
-        kwargs = {}
-
-        num_args = len(self.args)
-        num_opt_args = len(self.opt_args)
-        max_args = num_args + num_opt_args
-        num_inputs = len(inputs)
-        i = 0
-        arg_idx = 0
-        opt_arg_idx = 0
-        while i < num_inputs:
-            item = inputs[i]
-            if item.startswith('-'):
-                # item is an option.
-                item = item.lstrip('-')
-
-                if '=' in item:
-                    # An option and value are both in this item.
-                    opt, junk, val = item.partition('=')
-                    if opt in self.short_names:
-                        opt = self.short_names[opt]
-
-                    if opt in self.flags:
-                        raise InvalidFlag(opt, val)
-                else:
-                    # This item is just an option.
-                    opt = item
-                    if opt in self.short_names:
-                        opt = self.short_names[opt]
-
-                    if opt in self.opts:
-                        j = i + 1
-                        if j >= num_inputs or inputs[j].startswith('-'):
-                            # This is an option and requires a value.
-                            raise InvalidOption(opt)
-
-                        i += 1
-                        val = inputs[i]
-
-                if opt in self.flags:
-                    val = not self.flags[opt].default
-                elif opt not in self.opts:
-                    raise UnknownOption(opt)
-
-                kwargs[opt] = self._convert_type(opt, val)
-            else:
-                # Item is an arg.
-                if arg_idx < num_args:
-                    cur_arg = self.args[arg_idx]
-                    arg_idx += 1
-                elif opt_arg_idx < num_opt_args:
-                    cur_arg = self.opt_args[opt_arg_idx]
-                    opt_arg_idx += 1
-                elif num_args == 0 and num_opt_args == 0:
-                    raise BadArgCount(self.name, num_args, max_args, 1)
-
-                args.append(self._convert_type(cur_arg.name, item))
-
-            i += 1
-
-        num_args_passed = len(args)
-        if num_args_passed < num_args or num_args_passed > max_args:
-            raise BadArgCount(self.name, num_args, max_args, num_args_passed)
+    def run(self, args, kwargs):
+        """Run this command using args and kwargs."""
 
         result = self.func(*args, **kwargs)
 
@@ -553,25 +371,23 @@ class Command(object):
 
     @classmethod
     def from_func(cls, func, output_alg=None, short_names=None, opt_args=None,
-                  arg_types=None, usage_msg=None):
+                  arg_types=None, usage_msg=None, name=None):
         """Get an instance of Command by introspecting func.
 
         func -- a callable object.
         output_alg -- an optional callable that displays output based
-            on func's return value.
+                      on func's return value.
         short_names -- a dict mapping long option names to single letters.
         opt_args -- a list of func's optional params that should be
-            treated as optional command-line args instead of options.
+                    treated as optional command-line args instead of
+                    options.
         arg_types -- optional dict mapping arg names to callables that
                      take a string as input and either return an object
                      of the desired type or raise a ValueError.
         usage_msg -- an optional string explaining the command. Defaults
-            to a processed version of func's docstring.
-
-        DEBUG This should ignore self/cls parameters. I'm not sure how
-        to distinguish between functions and methods, so for now we're
-        not worrying about it. We could just ignore those names if in
-        0th position - only really nasty code would break on that.
+                     to a processed version of func's docstring.
+        name -- an optional name for the command. Defaults to a
+                transformed version of `func`'s name.
 
         """
 
@@ -579,6 +395,9 @@ class Command(object):
             # GRIPE It might be better to go through and make default
             # opt_args an empty list everywhere.
             opt_args = []
+
+        if arg_types is None:
+            arg_types = {}
 
         # Grab any param summary from the docstring.
         docstr = inspect.getdoc(func)
@@ -592,6 +411,9 @@ class Command(object):
 
         # Inspect func for hard data.
         func_args, varargs, varkw, defaults = inspect.getargspec(func)
+        if inspect.ismethod(func):
+            # Do not include the self/cls parameter.
+            func_args = func_args[1:]
         num_defaults = 0 if defaults is None else len(defaults)
         num_func_args = 0 if func_args is None else len(func_args) - num_defaults
         func_name = func.__name__
@@ -601,12 +423,11 @@ class Command(object):
         args = []
         for arg in arg_list:
             summary = summaries.get(arg)
-            args.append(Arg(arg, summary))
+            type_converter = arg_types.get(arg)
+            args.append(Arg(arg, summary, type_converter=type_converter))
 
-        # Build optional arg list, options dict, and flags dict.
-        # (Yes, this is rather ugly.)
+        # Build optional arg list and options dict.
         opts = {}
-        flags = {}
         for i, arg in enumerate(func_args[num_func_args:]):
             short_name = None
             if short_names is not None:
@@ -618,19 +439,17 @@ class Command(object):
 
             if arg in opt_args:
                 pos = opt_args.index(arg)
-                opt_args[pos] = Arg(arg, summary, defaults[i])
+                type_converter = arg_types.get(arg)
+                opt_args[pos] = Arg(arg, summary, defaults[i], type_converter)
 
                 continue
 
-            if isinstance(defaults[i], bool):
-                flags[arg] = Option(arg, summary, defaults[i], short_name)
+            type_converter = arg_types.get(arg)
+            opts[arg] = Option(arg, summary, defaults[i], short_name,
+                               type_converter)
 
-                continue
-
-            opts[arg] = Option(arg, summary, defaults[i], short_name)
-
-        return cls(func, args, opt_args, opts, flags, output_alg,
-                   arg_types, usage_msg)
+        return cls(func, args, opt_args, opts, output_alg, arg_types,
+                   usage_msg, name)
 
 class App(object):
     """A command-line application."""
@@ -674,11 +493,7 @@ class App(object):
 
         # Stores the globals dict for whatever module this app was created in.
         self.module_globals = None
-        # Options that modify the behavior of more than one command.
-        # DEBUG This is only needed to store type mappings, really. Should I
-        # bother with full Option objects?
         self.global_opts = {}
-        self.global_opt_types = {}
 
         # Fields that support the main() and command() decorators.
         # They hold whatever args were passed to the decorators.
@@ -692,6 +507,12 @@ class App(object):
         self._dec_main_cmd = None
         self._dec_arg_types = None
         self._dec_usage_msg = None
+
+    @property
+    def has_subcmds(self):
+        """Boolean indicating whether this app has subcommands."""
+
+        return len(self.commands) > 0
 
     def _cmd_decorator(self, func):
         """Do the work of decorating func as a command.
@@ -712,9 +533,6 @@ class App(object):
         think it's better than having two differently-named decorators
         for what looks to a user like the same task.
 
-        DEBUG This strategy might be a bad idea. Certainly it's warty.
-        If you have arguments in either direction, please tell me.
-
         """
 
         output_alg = self._dec_output_alg
@@ -726,20 +544,27 @@ class App(object):
         opt_args = self._dec_opt_args
         usage_msg = self._dec_usage_msg
 
-        # Merge self.arg_types with this command's arg_types, deferring to the
-        # command-specific dict.
+        # Merge self.arg_types with the command's arg_types, deferring to the
+        # command's data.
         arg_types = dict(self.arg_types)
         if self._dec_arg_types is not None:
             arg_types.update(self._dec_arg_types)
 
         cmd = Command.from_func(func, output_alg, short_names, opt_args,
                                 arg_types, usage_msg)
+
         if self._dec_main_cmd is True:
             # This is the main command.
             self.main_cmd = cmd
         else:
             # This is a subcommand.
             self.commands[cmd.name] = cmd
+
+        if 'help' not in self.commands:
+            # Add a 'help' command.
+            help_cmd = Command.from_func(self.show_help, name='help',
+                                         opt_args=['cmd_name'])
+            self.commands[help_cmd.name] = help_cmd
 
         # Empty state-transfer fields for next call.
         self._dec_output_alg = None
@@ -835,7 +660,7 @@ class App(object):
             that take a string as input and return an object of the
             desired type (or raise a ValueError).
         usage_msg -- explanation of how to use the command. Defaults
-                     to parsing func's docstring.
+                     a version of func's docstring.
 
         """
 
@@ -856,7 +681,7 @@ class App(object):
         self._dec_main_cmd = False
 
         if func is not None and default_args_passed is True:
-            # DEBUG Unclear message.
+            # GRIPE Unclear message.
             raise Exception('Either pass defaults with explicit keyword '
                             'names, or pass no args.')
 
@@ -871,7 +696,6 @@ class App(object):
         """Set up our global options from module_globals."""
 
         self.module_globals = module_globals
-        self.global_opt_types = arg_types
 
         # Store only the module's public global variables as options.
         # GRIPE This is the step that's likely to go wrong, and is relatively
@@ -886,146 +710,271 @@ class App(object):
                 # This is probably a module-level option.
                 # GRIPE Also, this code is very ugly.
                 name = key.replace('_', '-')
-                opt = Option(name, None, value)
+                type_converter = arg_types.get(key)
+                opt = Option(name, None, value, type_converter=type_converter)
                 self.global_opts[name] = opt
 
-    def show_usage(self, stream=None):
-        """Display this App's usage message.
+    def show_help(self, cmd_name=None):
+        """Display docs for this app.
 
-        stream -- optional file-like output stream. Default is stdout.
-
-        """
-
-        if stream is None:
-            stream = sys.stdout
-
-        if self.usage_msg is not None:
-            print >> stream, self.usage_msg
-            print >> stream
-
-        if len(self.commands):
-            self.show_avail_cmds(stream)
-        elif self.main_cmd is not None:
-            # GRIPE is_main_cmd is a wart. There must be a cleaner way to
-            # avoid displaying command name as part of the example.
-            self.main_cmd.show_usage(self.name, is_main_cmd=True, stream=stream)
-
-    def show_avail_cmds(self, stream=None):
-        """Display this App's commands.
-
-        stream -- optional file-like output stream. Default is stdout.
+        cmd_name -- optional subcommand to show help for.
 
         """
 
-        if stream is None:
-            stream = sys.stdout
+        # DEBUG This should be calculated based on the App's current
+        # environment, not hardcoded.
+        width = 70
 
-        print >> stream, "Available commands:\n"
+        if cmd_name is None:
+            cmd = self.main_cmd
+
+            if self.usage_msg is not None:
+                print self.usage_msg
+                print
+
+            if self.has_subcmds and cmd is None:
+                print self.get_avail_cmds()
+                return
+        else:
+            cmd = self.commands.get(cmd_name)
+            if cmd is None:
+                raise UnknownCommand(cmd_name)
+
+        app_name = self.name
+        if cmd is not None and cmd is not self.main_cmd:
+            app_name += ' %s' % cmd.name
+
+        example = 'Usage:%s%s' % (os.linesep, app_name)
+
+        help_msg = ''
+        usage_paras = []
+        usage_msg = self.usage_msg
+        if cmd.usage_msg is not None:
+            usage_msg = cmd.usage_msg
+
+        if usage_msg is not None:
+            for paragraph in usage_msg.split('\n' * 2):
+                indent_level = 0
+                for char in paragraph:
+                    if char == ' ':
+                        indent_level += 1
+                        break
+
+                if indent_level == 0:
+                    usage_paras.append(textwrap.fill(paragraph, width))
+                else:
+                    # As there was indentation, we leave the lines exactly as
+                    # they were - could be a sample code block or similar.
+                    usage_paras.append(paragraph)
+
+                indent_level = 0
+
+            sep = os.linesep * 2
+            help_msg += sep.join(usage_paras)
+
+        input_summaries = []
+        if len(cmd.args) > 0 or len(cmd.opt_args) > 0:
+            arg_summaries = []
+            for arg in cmd.args:
+                example += ' <%s>' % arg.name
+                summary = arg.format_summary()
+                if summary is not None:
+                    # Only explain inputs that have explanations.
+                    arg_summaries.append(summary)
+
+            for arg in cmd.opt_args:
+                example += ' [<%s>]' % arg.name
+                summary = arg.format_summary()
+                if summary is not None:
+                    arg_summaries.append(summary)
+
+            if len(arg_summaries) > 0:
+                arg_summaries.insert(0, 'Arguments:')
+                input_summaries.extend(arg_summaries)
+
+        if len(cmd.opts) > 0:
+            opt_summaries = []
+            for opt in cmd.opts.values():
+                summary = opt.format_summary()
+                if summary is not None:
+                    opt_summaries.append(summary)
+
+            if len(opt_summaries) > 0:
+                # GRIPE It might be a nice touch to distinguish between
+                # options and flags.
+                opt_summaries.insert(0, 'Options:')
+                input_summaries.extend(opt_summaries)
+
+        if help_msg:
+            input_summaries.insert(0, help_msg)
+
+        if self.has_subcmds and cmd is self.main_cmd:
+            input_summaries.append(self.get_avail_cmds())
+
+        sep = os.linesep * 2
+        help_msg = sep.join(input_summaries)
+
+        print os.linesep.join([example + os.linesep, help_msg])
+
+    def get_avail_cmds(self):
+        """Return a string listing this App's commands."""
+
+        header = 'Available commands:\n'
+        if self.main_cmd is not None:
+            header = 'Available subcommands:\n'
+
+        lines = [header]
         for name, cmd in self.commands.items():
-            print >> stream, '%s -- %s' % (name, cmd.summary)
+            lines.append('  %s -- %s' % (name, cmd.summary))
+
+        return os.linesep.join(lines)
+
+    def _parse_argv(self, argv=None):
+        """Return (cmd, args, opts) from `argv`.
+
+        It is a helper, only meant for use by `self._do_cmd`.
+
+        `cmd` is the Command to run.
+        `args` is a list of argument values.
+        `opts` is a dict mapping option name to passed value.
+
+        argv -- List of inputs to program, including executable name.
+                Defaults to `sys.argv`.
+
+        """
+
+        if argv is None:
+            argv = sys.argv
+
+        self.name = argv[0]
+        cmd = self.main_cmd
+        inputs = argv[1:]
+
+        args = []
+        opts = {}
+
+        known_opts = {}
+        def _add_known_opts(opts):
+            """Given an iterable of Options, add them to `known_opts`.
+
+            I don't like inline functions much, but this DRYs a few
+            lines fairly cleanly.
+
+            """
+
+            for opt in opts:
+                known_opts[opt.name] = opt
+                if opt.short_name is not None:
+                    known_opts[opt.short_name] = opt
+
+        _add_known_opts(self.global_opts.values())
+
+        if cmd is not None:
+            _add_known_opts(cmd.opts.values())
+
+        # When literal_inputs is True, items are treated as input to a Command,
+        # and cannot be command names or options.
+        literal_inputs = False
+        while len(inputs) > 0:
+            item = inputs.pop(0)
+
+            if item == '--':
+                literal_inputs = True
+                continue
+
+            if item.startswith('--') and not literal_inputs:
+                # item is a long option name, possibly including a value.
+                item = item.strip('-')
+                opt_name, sep, val = item.partition('=')
+
+                if opt_name not in known_opts:
+                    raise UnknownOption(opt_name)
+
+                opt = known_opts[opt_name]
+                if opt.is_flag:
+                    val = not opt.default
+                elif val == '':
+                    val = inputs.pop(0)
+
+                opts[opt.name] = opt.convert_type(val)
+            elif item.startswith('-') and not literal_inputs:
+                # item is one or more short option names, possibly followed by
+                # a value. All but the last short name must be flags.
+                item = item.strip('-')
+
+                val = None
+                last_opt = None
+                for i, char in enumerate(item):
+                    if char not in known_opts and val is None:
+                        raise UnknownOption(char)
+
+                    if val is not None:
+                        val += char
+                        continue
+
+                    opt = known_opts[char]
+                    if opt.is_flag:
+                        opts[opt.name] = not opt.default
+                    else:
+                        last_opt = char
+                        val = ''
+
+                if last_opt is not None:
+                    if val is None or '':
+                        val = inputs.pop(0)
+
+                    last_opt = known_opts[last_opt]
+                    opts[last_opt.name] = last_opt.convert_type(val)
+            else:
+                if (cmd is self.main_cmd and self.has_subcmds and
+                    len(args) == 0 and not literal_inputs):
+                    # This may be a command name.
+                    cand = self.commands.get(item)
+                    if cand is None:
+                        if self.main_cmd is None:
+                            # A command must be specified.
+                            raise UnknownCommand(item)
+                        else:
+                            # This is a positional argument.
+                            args.append(item)
+                    else:
+                        cmd = cand
+                        _add_known_opts(cmd.opts.values())
+                else:
+                    args.append(item)
+
+        if cmd is None:
+            raise UnknownCommand()
+
+        return cmd, args, opts
 
     def _do_cmd(self, argv):
         """Parse `argv` and run the specified command."""
 
-        self.argv = argv[:]
-        self.name = argv[0]
+        cmd, args, opts = self._parse_argv(argv)
+        self.cmd = cmd
 
-        inputs = argv[1:]
-        global_opts = {}
-        show_help = False
-        for i, item in enumerate(inputs):
-            if item.startswith('-'):
-                item = item.strip('-')
+        # Set any global options.
+        for name, opt in self.global_opts.items():
+            val = opts.get(name)
+            if val is not None:
+                # Don't pass the command options it doesn't know.
+                del opts[name]
+            else:
+                val = opt.default
 
-                # GRIPE Try applying a similar approach to our other opt
-                # parsing logic. It seems a bit cleaner.
-                opt_name, junk, val = item.partition('=')
-                # DEBUG Coders may want to use 'h' for opts other than 'help'.
-                if opt_name == 'help' or opt_name == 'h':
-                    show_help = True
-                    # Throw out the 'help' option - it's always treated as
-                    # global, and we don't want to actually pass it to a
-                    # command.
-                    inputs.pop(i)
-                    continue
-                if opt_name not in self.global_opts:
-                    continue
+            var_name = name.replace('-', '_')
 
-                opt = self.global_opts[opt_name]
-                inputs.pop(i)
-                if type(opt.default) == types.BooleanType:
-                    # This option is a flag.
-                    if val is not '':
-                        raise InvalidOption(opt_name, value)
-                    val = not opt.default
-                elif val is '':
-                    # There was no '=' - if there's another item in the list,
-                    # that's our value.
-                    if len(inputs) > i:
-                        val = inputs.pop(i)
-                    else:
-                        raise InvalidOption(opt_name)
+            self.module_globals[var_name] = opt.convert_type(val)
 
-                # DEBUG Here's where we ought to handle type mappings.
-                var_name = opt_name.replace('-', '_')
-                if var_name in self.global_opt_types:
-                    val = self.global_opt_types[var_name](val)
-
-                global_opts[opt_name] = val
-
-        for opt_name in global_opts:
-            val = global_opts[opt_name]
-            var_name = opt_name.replace('-', '_')
-            self.module_globals[var_name] = global_opts[opt_name]
-
-        if len(inputs) > 0 and inputs[0] == 'help':
-            # We should show help instead of running a command.
-            show_help = True
-            inputs.pop(0)
-
-        self.cmd = self.main_cmd
-        cmd_name = None
-        if len(self.commands) > 0:
-            # This program uses subcommands, so the first command must be one.
-
-            # DEBUG Should an App with a self.main_cmd be allowed to have
-            # subcommands? Bob pointed out that it probably shouldn't -
-            # subcommands break badly, since you can't tell the difference
-            # between input that matches a command name and an attempt to
-            # invoke the command. This means @command and @main should throw an
-            # exception if such a setup is detected. Unless there's a sane way
-            # to escape inputs matching command names.
-            if (self.main_cmd is None and len(self.commands) < 1 and
-                len(inputs) < 1):
-                raise UnknownCommand()
-
-            if len(inputs) > 0:
-                cmd_name = inputs[0]
-                self.cmd = self.commands.get(cmd_name)
-
-            args = inputs[1:]
-
-            if self.cmd is None and cmd_name is not None:
-                # GRIPE There should be more advanced error handling here.
-                # Like printing a usage message if one is defined.
-                raise UnknownCommand(cmd_name)
-        else:
-            args = inputs
-
-        if show_help == True or self.cmd is None:
-            if cmd_name is None:
-                self.show_usage()
-            elif self.cmd is not None:
-                self.cmd.show_usage(self.name)
-        else:
-            self.cmd.run(args)
+        cmd.run(args, opts)
 
     def _show_err_msg(self, msg):
         """Display an error message to `sys.stderr`."""
 
         print >> sys.stderr, 'ERROR: %s' % msg
 
-        if self.cmd is not None:
+        if self.cmd is not self.main_cmd and self.cmd is not None:
             help_msg = "Run '%s help %s' for usage message." % (self.name,
                                                                 self.cmd.name)
         else:
@@ -1055,7 +1004,7 @@ class App(object):
                 msg = "'%s' is not a known command." % exc.input
 
             print >> sys.stderr, 'ERROR: %s' % msg
-            self.show_avail_cmds(sys.stderr)
+            print >> sys.stderr, self.get_avail_cmds()
         except BadArgCount as exc:
             arg_str = 'arg' if exc.max_argc is 1 else 'args'
             if exc.num_given > exc.max_argc:

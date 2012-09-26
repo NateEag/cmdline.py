@@ -41,3 +41,19 @@
 2012-05-04 Got semi-working handling for the expected error cases. Overall exception handlers are the jurisdiction of app developers, so the default excepthook is left in place.
 
 2012-09-14 Wrote a basic readme.
+
+2012-09-19 Merged Command.flags with Command.opts and added Option.is_flag property.
+
+2012-09-23 Moved type conversion callables to Arg and Option classes.
+
+2012-09-24 Overhauled input parsing to split inputs into args and options at the app level.
+
+2012-09-24 Made '--' specify that there are no options after it, and that all remaining inputs should be treated as args.
+
+2012-09-24 Fixed '-' option behavior. We now accept multiple short names after a hyphen, if at most the last one requires a value, and values for short names no longer use the '=' separator, so we're much more getopt-like.
+
+2012-09-24 Converted faked 'help' subcommand to a real subcommand.
+
+2012-09-26 Fixed bug where options are interpreted as commands if they come after '--help'.
+
+2012-09-26 Made '<app> help help' stop telling lies.

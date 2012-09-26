@@ -30,10 +30,10 @@ importable, then the following works::
   $ ./demo.py --greeting 'Goodbye, cruel world'
   Goodbye, cruel world!
 
-  $ ./demo.py -p=...
+  $ ./demo.py -p...
   Hello, world...
 
-  $ ./demo.py --help
+  $ ./demo.py help
   Usage:
   ./demo.py
 
@@ -43,15 +43,51 @@ importable, then the following works::
 
     -g/--greeting
 
-As is probably obvious, cmdline.py treats args with no default value as
-command-line args, and args with a default value as options. If an arg
-defaults to True or False, it is treated as a flag, and passing it inverts the
-default value.
+  Available subcommands:
+
+    help -- Display docs for this app.
+
+
+How It Works
+------------
+
+cmdline.py introspects function definitions and creates commands from them.
+
+The logic is thus:
+
+* Function names become subcommand names (underscores become hyphens).
+* Function args become positional args.
+* Function kwargs become optional args. If a kwarg defaults to True or False,
+  it becomes a flag, and passing it inverts the default value.
+* Function docstrings become basic usage messages.
+
+Inputs are specified much as to GNU getopt. Thus, if you have flags with short names 'a', 'b', and 'c', you can do::
+
+  $ ./demo.py -abc
+
+and if you want to pass option 'd' (which takes an int), you can do::
+
+  $ ./demo.py -abcd123
+
+Long option names can have an ``=`` between the name and value, or just leave
+whitespace between them.
+
+Programs are automatically given a 'help' subcommand, and can have others.
+
+Note that '--' escapes options *and* subcommand names. This is handy for
+programs with both a main command and subcommands. For instance, if you want
+to use 'help' as the first input to the main command, you can do::
+
+  $ ./demo.py -- help
+
+Options like ``--help`` and ``--version``, which are mostly subcommands disguised as options, are not supported. They are a venerable tradition, but I
+see no clean way to support them. A good patch would likely be accepted.
+
 
 Better Help
 -----------
 
-If we add some docstrings, things get more helpful::
+If we add some docstrings, help gets more helpful::
 
   #! /usr/bin/env python
 
@@ -77,7 +113,7 @@ If we add some docstrings, things get more helpful::
 
 which results in the following improvements::
 
-  $ ./demo.py --help
+  $ ./demo.py help
   Greet things via standard output.
 
   Usage:
@@ -87,11 +123,15 @@ which results in the following improvements::
 
   Options:
 
-    -p/--punctuation
+    -p, --punctuation
         Text to be displayed after the greeting.
 
-    -g/--greeting
+    -g, --greeting
         A message to be displayed.
+
+  Available subcommands:
+
+    help -- Display docs for this app.
 
 Note that per PEP 257, the file's docstring can be used as part of its usage
 message (though that is opt-in). Also note that cmdline.py recognizes three
@@ -135,24 +175,26 @@ easy::
       print 'Hello, %s %s. I am your computer.' % (person, title)
 
   if __name__ == '__main__':
-    app.run()
+      app.run()
 
 The newly-minted program knows what commands exist::
 
-  $ ./demo.py
+  $ ./demo.py help
   Meet and greet things via standard output.
 
   Available commands:
 
-  meet -- Introduce computer to person.
-  greet -- A more powerful version of the classic "Hello, world!" program.
+    meet -- Introduce computer to person.
+    help -- Display docs for this app.
+    greet -- A more powerful version of the classic "Hello, world!" program.
 
 and help is available for specific commands::
 
-  $ ./demo.py meet --help
-  Usage: ./test.py meet <person>
+  $ ./demo.py help meet
+  Usage:
+  ./test.py meet <person>
 
-  Introduce computer to `person`.
+  Introduce computer to person.
 
   Arguments:
 
@@ -161,33 +203,32 @@ and help is available for specific commands::
 
   Options:
 
-    -t/--title
+    -t, --title
         formal title for person computer is introducing itself to.
 
-N.B.: Having both subcommands and a main command causes difficulties that I
-have not taken the time to think through yet. cmdline.py does not currently
-keep you from doing that, but perhaps it should.
 
 Other Features
 --------------
 
-There are a few other features worth mentioning that I'm currently too lazy to
-document in-depth. A few quick notes follow.
+There are a few other features worth mentioning. The code has pretty decent
+docstrings, so reading through those should give you a good overview of what
+you can do. A few highlights follow.
 
 By default, input values are strings. Sometimes you don't want that. The App
-constructor accepts a keyword arg named ``arg_types`` that solves that
-problem.  The docstrings cover how it works, so do::
+constructor accepts a keyword arg named ``arg_types`` to handle that. The
+docstrings cover how it works, so do::
 
   >>> import cmdline
   >>> help(cmdline.App)
 
 to learn about it.
 
-There is tentative support for global options - ones that can be set for every
-command. It's ugly, and may get axed or highly modified, but it could be
-useful for programs with subcommands that have common options (think of
-``--git-dir`` in git). It expects you to pass globals() to it, and tries not
-to treat functions, classes, or modules as options. It looks like so::
+There is tentative support for global options - ones that can be set for all
+commands. It's ugly, and such options are not documented by the help command,
+but it could be useful for programs with subcommands that have common options
+(think of ``--git-dir`` in git). It expects you to pass globals() to it, and
+tries not to treat functions, classes, or modules as options. It looks like
+this::
 
   app = cmdline.App(usage_msg=__doc__)
 
@@ -210,9 +251,11 @@ to treat functions, classes, or modules as options. It looks like so::
           print 'Foo is even!'
 
   if __name__ == '__main__':
-    app.run()
+      app.run()
 
-There is tentative support for optional args. This was inspired by git, but I wonder if it is a misfeature. It's easy to use - the App.command decorator accepts a list of ``opt_args``.
+There is also tentative support for optional args. This was inspired by git,
+but I wonder if it is a misfeature. It's easy to use - the App.command
+decorator accepts a list of ``opt_args``.
 
 There are some examples that served as a sort of ad-hoc test suite while I was
 getting things to the current state - they are ``hello.py`` and
@@ -221,7 +264,11 @@ getting things to the current state - they are ``hello.py`` and
 Alpha At Best
 -------------
 
-cmdline.py is **not** ready for production. It has no test suite, very little cleanup done, a todo.txt with a number of missing features and known deficiencies, a few misfeatures, and undoubtedly a lot of unknown missing features and deficiencies. The interface is very likely to change - hopefully by removing warts and adding as little as possible, but we'll see what transpires.
+cmdline.py is **not** ready for production. It has no test suite, a todo.txt
+with a number of missing features and known deficiencies, a few misfeatures,
+and undoubtedly a lot of unknown missing features and deficiencies. The
+interface is very likely to change - hopefully by removing warts and adding as
+little as possible, but we'll see what transpires.
 
 I'm putting it out in the wild because I would love to hear feedback from
 people. What sucks about this? What's good about it? How can it be improved?
