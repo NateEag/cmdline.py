@@ -248,6 +248,18 @@ class Command(object):
 
             self.short_names[value.short_name] = key
 
+    @property
+    def min_argc(self):
+        """Minimum number of args to this Command."""
+
+        return len(self.args)
+
+    @property
+    def max_argc(self):
+        """Maximum number of args to this Command."""
+
+        return len(self.args) + len(self.opt_args)
+
     def run(self, args, kwargs):
         """Run this command using args and kwargs."""
 
@@ -773,7 +785,7 @@ class App(object):
             help_msg += sep.join(usage_paras)
 
         input_summaries = []
-        if len(cmd.args) > 0 or len(cmd.opt_args) > 0:
+        if cmd.min_argc > 0:
             arg_summaries = []
             for arg in cmd.args:
                 example += ' <%s>' % arg.name
@@ -960,6 +972,9 @@ class App(object):
 
         if cmd is None:
             raise UnknownCommand()
+
+        if len(args) < cmd.min_argc or len(args) > cmd.max_argc:
+            raise BadArgCount(cmd.name, cmd.min_argc, cmd.max_argc, len(args))
 
         return cmd, args, opts
 
