@@ -57,3 +57,5 @@
 2012-09-26 Fixed bug where options are interpreted as commands if they come after '--help'.
 
 2012-09-26 Made '<app> help help' stop telling lies.
+
+2012-09-26 Positional args now respect arg_types.

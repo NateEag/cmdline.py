@@ -1,8 +1,6 @@
-2012-09-26 Get type conversion of positional args working.
-
 2012-09-26 Make passing the same option multiple times an error. Allowing it is dangerous.
 
-2012-05-07 Decide how to avoid raising InvalidShortName exceptions when multiple func args begin with the same letter. We could make shortnaming an "only if you asked" feature, or not give short names when they would collide (perhaps defaulting to first available character in the varname).
+y2012-05-07 Decide how to avoid raising InvalidShortName exceptions when multiple func args begin with the same letter. We could make shortnaming an "only if you asked" feature, or not give short names when they would collide (perhaps defaulting to first available character in the varname).
 
 2012-09-02 Rename default_args_passed to kwargs_passed. It's an internal variable for a few methods, and the current name is actively wrong.
 

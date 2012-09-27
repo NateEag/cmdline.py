@@ -926,6 +926,7 @@ class App(object):
                     last_opt = known_opts[last_opt]
                     opts[last_opt.name] = last_opt.convert_type(val)
             else:
+                args_len = len(args)
                 if (cmd is self.main_cmd and self.has_subcmds and
                     len(args) == 0 and not literal_inputs):
                     # This may be a command name.
@@ -942,6 +943,20 @@ class App(object):
                         _add_known_opts(cmd.opts.values())
                 else:
                     args.append(item)
+
+                if args_len < len(args):
+                    # A new arg was added - set its type.
+                    # GRIPE Doing this retroactively is ugly.
+                    arg_pos = len(args) - 1
+                    num_req_args = len(cmd.args)
+                    if arg_pos <= num_req_args - 1:
+                        # Required arg.
+                        arg = cmd.args[arg_pos]
+                    else:
+                        # Optional arg.
+                        arg = cmd.opt_args[arg_pos - num_req_args - 1]
+
+                    args[-1] = arg.convert_type(args[-1])
 
         if cmd is None:
             raise UnknownCommand()
