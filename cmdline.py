@@ -628,10 +628,10 @@ class App(object):
 
         """
 
-        default_args_passed = False
+        kwargs_passed = False
         if (output_alg is not None or short_names is not None or
             opt_args is not None or arg_types is not None):
-            default_args_passed = True
+            kwargs_passed = True
 
         self._dec_output_alg = output_alg
         self._dec_short_names = short_names
@@ -640,12 +640,11 @@ class App(object):
 
         self._dec_main_cmd = True
 
-        if func is not None and default_args_passed is True:
-            # DEBUG Unclear message.
-            raise Exception('Either pass defaults with explicit keyword '
-                            'names, or pass no args.')
+        if func is not None and kwargs_passed is True:
+            raise Exception('You may only pass args to this decorator as '
+                            'keyword args.')
 
-        if default_args_passed is True:
+        if kwargs_passed is True:
             # Return a function that will decorate func.
             return self._cmd_decorator
         else:
@@ -685,11 +684,11 @@ class App(object):
 
         # GRIPE Most of this footwork is identical to what we do in
         # App.main(). This should be DRYed up.
-        default_args_passed = False
+        kwargs_passed = False
         if (usage_msg is not None or output_alg is not None or
             short_names is not None or opt_args is not None or
             arg_types is not None):
-            default_args_passed = True
+            kwargs_passed = True
 
         self._dec_output_alg = output_alg
         self._dec_short_names = short_names
@@ -699,12 +698,11 @@ class App(object):
 
         self._dec_main_cmd = False
 
-        if func is not None and default_args_passed is True:
-            # GRIPE Unclear message.
-            raise Exception('Either pass defaults with explicit keyword '
-                            'names, or pass no args.')
+        if func is not None and kwargs_passed is True:
+            raise Exception('You may only pass args to this decorator as '
+                            'keyword args.')
 
-        if default_args_passed is True:
+        if kwargs_passed is True:
             # Return a function that will decorate func.
             return self._cmd_decorator
         else:

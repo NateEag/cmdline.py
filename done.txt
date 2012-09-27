@@ -63,3 +63,5 @@
 2012-09-26 Made checking argument count work again.
 
 2012-09-27 Made passing the same option multiple times an error.
+
+2012-09-27 Renamed default_args_passed to kwargs_passed.
