@@ -85,6 +85,13 @@ class InvalidOption(InvalidInput):
         self.name = name
         self.input = value
 
+class DuplicateOption(InvalidInput):
+    """Indicates that this option has already been passed."""
+
+    def __init__(self, duplicate_name, name):
+        self.input = duplicate_name
+        self.name = name
+
 class InvalidFlag(InvalidOption):
     """Indicates that an invalid flag was given.
 
@@ -899,6 +906,14 @@ class App(object):
                 item = item.strip('-')
                 opt_name, sep, val = item.partition('=')
 
+                for opt in known_opts.values():
+                    if opt_name == opt.short_name and (opt.name in opts or
+                                                       opt.short_name in opts):
+                        raise DuplicateOption(opt_name, opt.short_name)
+                    elif opt_name == opt.name and (opt.name in opts or
+                                                   opt.short_name in opts):
+                        raise DuplicateOption(opt_name, opt.name)
+
                 if opt_name not in known_opts:
                     raise UnknownOption(opt_name)
 
@@ -923,6 +938,16 @@ class App(object):
                     if val is not None:
                         val += char
                         continue
+
+                    # GRIPE This exact block (with a single name change)
+                    # appears in the long-option-name if, which is very sad.
+                    for opt in known_opts.values():
+                        if char == opt.short_name and (opt.name in opts or
+                                                       opt.short_name in opts):
+                            raise DuplicateOption(char, opt.short_name)
+                        elif char == opt.name and (opt.name in opts or
+                                                       opt.short_name in opts):
+                            raise DuplicateOption(char, opt.name)
 
                     opt = known_opts[char]
                     if opt.is_flag:
@@ -966,6 +991,10 @@ class App(object):
                         arg = cmd.args[arg_pos]
                     else:
                         # Optional arg.
+                        if arg_pos >= cmd.max_argc:
+                            raise BadArgCount(cmd.name, cmd.min_argc,
+                                              cmd.max_argc, len(args))
+
                         arg = cmd.opt_args[arg_pos - num_req_args - 1]
 
                     args[-1] = arg.convert_type(args[-1])
@@ -973,7 +1002,7 @@ class App(object):
         if cmd is None:
             raise UnknownCommand()
 
-        if len(args) < cmd.min_argc or len(args) > cmd.max_argc:
+        if len(args) < cmd.min_argc:
             raise BadArgCount(cmd.name, cmd.min_argc, cmd.max_argc, len(args))
 
         return cmd, args, opts
@@ -1049,6 +1078,10 @@ class App(object):
                                                                exc.input)
         except UnknownOption as exc:
             err_msg = "'%s' is not a known option." % exc.input
+        except DuplicateOption as exc:
+            err_msg = ("You have passed options '%s' and '%s', which are "
+                       "duplicates.")
+            err_msg = err_msg % (exc.name, exc.input)
         except InvalidInput as exc:
             err_msg = "'%s' is invalid input." % exc.input
 
