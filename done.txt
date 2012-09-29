@@ -65,3 +65,7 @@
 2012-09-27 Made passing the same option multiple times an error.
 
 2012-09-27 Renamed default_args_passed to kwargs_passed.
+
+2012-09-29 Removed stupid "output returned value" 'feature'.
+
+2012-09-29 Added support for status exit codes.

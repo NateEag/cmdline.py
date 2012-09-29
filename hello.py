@@ -14,7 +14,7 @@ import os
 import cmdline
 
 # Set up app for this script.
-app = cmdline.App(usage_msg=__doc__, output_alg=cmdline.print_str)
+app = cmdline.App(usage_msg=__doc__)
 
 # Module variables.
 panic = False
@@ -30,7 +30,7 @@ app.make_global_opts(globals(), arg_types={'rand_val': int})
           arg_types={'reps': int})
 def greet(greeting='Hello, world', punctuation='!', reps=1, sep=os.linesep,
           yell=False):
-    """Return a simple greeting.
+    """Print a simple greeting.
 
     It is fairly conventional to have some extra commentary, unless you
     really don't need it, so I'm going to include it here.
@@ -85,7 +85,7 @@ def greet(greeting='Hello, world', punctuation='!', reps=1, sep=os.linesep,
 
     result = sep.join([result] * reps)
 
-    return result
+    print result
 
 if __name__ == '__main__':
     app.run()

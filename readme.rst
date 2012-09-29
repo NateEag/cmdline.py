@@ -207,6 +207,23 @@ and help is available for specific commands::
         formal title for person computer is introducing itself to.
 
 
+Command Return Values
+---------------------
+
+If cmdline.py understands a function's return value, it uses it to set the
+program exit status. Otherwise, it ignores it.
+
+If a command's function returns None (the default), cmdline.py
+will set the exit status to 0.
+
+If a command's function returns an integer from 0 to 127, cmdline.py will set
+the exit status to that value.
+
+Note that if user input is recognizably invalid, a cmdline.py App will set the
+program's exit status to 2 (which the Python docs claim is the usual Unix move
+for invalid syntax: http://docs.python.org/library/sys.html#sys.exit).
+
+
 Other Features
 --------------
 

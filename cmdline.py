@@ -1,4 +1,4 @@
-"""A module for writing command-line Python programs.
+""""A module for writing command-line Python programs.
 
 Use the App.command() and App.main() decorators to give modules
 command-line interfaces with low effort.
@@ -23,6 +23,12 @@ try:
     from collections import OrderedDict
 except ImportError:
     from ordereddict import OrderedDict
+
+# Module constants.
+# According to the Python docs, command line syntax errors usually yield an
+# exit code of 2, so that's what I'm doing. I'm not sure this is the best
+# value to use. http://docs.python.org/library/sys.html#sys.exit
+_USAGE_ERR_CODE = 2
 
 class InvalidInput(Exception):
     """Indicates that invalid input was given.
@@ -212,8 +218,8 @@ class Command(object):
 
     # GRIPE You could argue that __init__ should actually just be
     # from_func. I'm not sure if you'd be right or not.
-    def __init__(self, func, args, opt_args, opts, output_alg=None,
-                 arg_types=None, usage_msg=None, name=None):
+    def __init__(self, func, args, opt_args, opts, arg_types=None,
+                 usage_msg=None, name=None):
         """Make a new Command.
 
         func -- callable that does the command's work.
@@ -221,8 +227,6 @@ class Command(object):
         opt_args -- list of optional positional args for this command.
         opts -- dict of options for this command. Options map a name to a
             (required) passed value (with an optional short name).
-        output_alg -- callable to display `func`'s return value.
-            Defaults to None, as good *nix programs are silent by default.
         usage_msg -- Optional string explaining the command. Defaults to
             None.
         name -- Optional command name. If None, self.name is set by
@@ -235,7 +239,6 @@ class Command(object):
         self.args = args
         self.opt_args = opt_args
         self.opts = opts
-        self.output_alg = output_alg
         self.usage_msg = usage_msg
 
         summary = None
@@ -270,10 +273,7 @@ class Command(object):
     def run(self, args, kwargs):
         """Run this command using args and kwargs."""
 
-        result = self.func(*args, **kwargs)
-
-        if self.output_alg is not None and result is not None:
-            self.output_alg(result)
+        return self.func(*args, **kwargs)
 
     @classmethod
     def _get_param_summaries(cls, docstr):
@@ -389,13 +389,11 @@ class Command(object):
         return sep.join(paragraphs)
 
     @classmethod
-    def from_func(cls, func, output_alg=None, short_names=None, opt_args=None,
-                  arg_types=None, usage_msg=None, name=None):
+    def from_func(cls, func, short_names=None, opt_args=None, arg_types=None,
+                  usage_msg=None, name=None):
         """Get an instance of Command by introspecting func.
 
         func -- a callable object.
-        output_alg -- an optional callable that displays output based
-                      on func's return value.
         short_names -- a dict mapping long option names to single letters.
         opt_args -- a list of func's optional params that should be
                     treated as optional command-line args instead of
@@ -467,13 +465,12 @@ class Command(object):
             opts[arg] = Option(arg, summary, defaults[i], short_name,
                                type_converter)
 
-        return cls(func, args, opt_args, opts, output_alg, arg_types,
-                   usage_msg, name)
+        return cls(func, args, opt_args, opts, arg_types, usage_msg, name)
 
 class App(object):
     """A command-line application."""
 
-    def __init__(self, usage_msg=None, arg_types={}, output_alg=None):
+    def __init__(self, usage_msg=None, arg_types={}):
         """Create an App.
 
         usage_msg -- optional string explaining this App to an end-user.
@@ -485,25 +482,11 @@ class App(object):
                      take a string as input and either return an object
                      of the desired type or raise a ValueError.
 
-        output_alg -- optional callable that takes the return value of a
-                      command func and displays a representation thereof
-                      to standard output.
-
-                      GRIPE Likely a bad idea; it might be much better
-                      to just have commands handle their own output. The
-                      thought was that it might make displaying custom
-                      types an App works with simpler, after
-                      retrieval/creation/editing/what-have-you. Really
-                      this is just a general hook, which *could* be used
-                      for display - might there be other legit uses for
-                      it?
-
         """
 
         self.cmd = None
 
         self.arg_types = arg_types
-        self.output_alg = output_alg
         self.main_cmd = None
         self.commands = {}
         self.name = None
@@ -520,7 +503,6 @@ class App(object):
         # GRIPE They also have utterly lousy names. '_dec' stands for
         # 'decorator', but I keep forgetting that. Find a better one. Or put
         # these in a single dict, which would probably be simpler.
-        self._dec_output_alg = None
         self._dec_short_names = None
         self._dec_opt_args = None
         self._dec_main_cmd = None
@@ -554,11 +536,6 @@ class App(object):
 
         """
 
-        output_alg = self._dec_output_alg
-        if self._dec_output_alg is None:
-            # Use app's default output algorithm.
-            output_alg = self.output_alg
-
         short_names = self._dec_short_names
         opt_args = self._dec_opt_args
         usage_msg = self._dec_usage_msg
@@ -569,8 +546,8 @@ class App(object):
         if self._dec_arg_types is not None:
             arg_types.update(self._dec_arg_types)
 
-        cmd = Command.from_func(func, output_alg, short_names, opt_args,
-                                arg_types, usage_msg)
+        cmd = Command.from_func(func, short_names, opt_args, arg_types,
+                                usage_msg)
 
         if self._dec_main_cmd is True:
             # This is the main command.
@@ -586,7 +563,6 @@ class App(object):
             self.commands[help_cmd.name] = help_cmd
 
         # Empty state-transfer fields for next call.
-        self._dec_output_alg = None
         self._dec_short_names = None
         self._dec_opt_args = None
         self._dec_arg_types = None
@@ -594,8 +570,7 @@ class App(object):
 
         return func
 
-    def main(self, func=None, output_alg=None, short_names=None,
-             opt_args=None, arg_types=None):
+    def main(self, func=None, short_names=None, opt_args=None, arg_types=None):
         """Decorator to make func the main command for this app.
 
         All arguments to it *must* be passed as keyword args, like so:
@@ -617,7 +592,6 @@ class App(object):
         behavior, for which I apologize, but I do not currently see a
         way to avoid it.
 
-        output_alg -- callable to format func's return value for output.
         short_names -- dict mapping func's optional arg names to single
             letters that can be used as short names.
         opt_args -- list of func's optional params that should be
@@ -629,11 +603,10 @@ class App(object):
         """
 
         kwargs_passed = False
-        if (output_alg is not None or short_names is not None or
-            opt_args is not None or arg_types is not None):
+        if (short_names is not None or opt_args is not None or
+            arg_types is not None):
             kwargs_passed = True
 
-        self._dec_output_alg = output_alg
         self._dec_short_names = short_names
         self._dec_opt_args = opt_args
         self._dec_arg_types = arg_types
@@ -651,8 +624,8 @@ class App(object):
             # Decorate func and return the result.
             return self._cmd_decorator(func)
 
-    def command(self, func=None, output_alg=None, short_names=None,
-                opt_args=None, arg_types=None, usage_msg=None):
+    def command(self, func=None, short_names=None, opt_args=None,
+                arg_types=None, usage_msg=None):
         """Decorator to mark func as a command.
 
         All arguments to it *must* be passed as keyword args, like so:
@@ -669,7 +642,6 @@ class App(object):
         seems preferable to having multiple decorators with different
         names that perform the same task, however.
 
-        output_alg -- callable to format func's return value for output.
         short_names -- dict mapping func's optional arg names to single
             letters that can be used as short names.
         opt_args -- list of func's optional params that should be
@@ -685,12 +657,10 @@ class App(object):
         # GRIPE Most of this footwork is identical to what we do in
         # App.main(). This should be DRYed up.
         kwargs_passed = False
-        if (usage_msg is not None or output_alg is not None or
-            short_names is not None or opt_args is not None or
-            arg_types is not None):
+        if (usage_msg is not None or short_names is not None or
+            opt_args is not None or arg_types is not None):
             kwargs_passed = True
 
-        self._dec_output_alg = output_alg
         self._dec_short_names = short_names
         self._dec_opt_args = opt_args
         self._dec_arg_types = arg_types
@@ -1006,7 +976,7 @@ class App(object):
         return cmd, args, opts
 
     def _do_cmd(self, argv):
-        """Parse `argv` and run the specified command."""
+        """Return result of running command specified by `argv`."""
 
         cmd, args, opts = self._parse_argv(argv)
         self.cmd = cmd
@@ -1024,7 +994,7 @@ class App(object):
 
             self.module_globals[var_name] = opt.convert_type(val)
 
-        cmd.run(args, opts)
+        return cmd.run(args, opts)
 
     def _show_err_msg(self, msg):
         """Display an error message to `sys.stderr`."""
@@ -1051,7 +1021,13 @@ class App(object):
 
         err_msg = None
         try:
-            self._do_cmd(argv)
+            exit_code = self._do_cmd(argv)
+            if exit_code is None:
+                # If we haven't been told otherwise, assume things worked.
+                exit_code = 0
+
+            if type(exit_code) is int and (exit_code >= 0 or exit_code <= 127):
+                sys.exit(exit_code)
         except UnknownCommand as exc:
             # We want to display the available commands in this case, so we
             # don't populate err_msg.
@@ -1085,14 +1061,4 @@ class App(object):
 
         if err_msg is not None:
             self._show_err_msg(err_msg)
-
-def print_str(obj):
-    """Basic output algorithm for command-line programs.
-
-    Cast `obj` to a string, then print the result.
-
-    """
-
-    text = str(obj)
-
-    print text
+            sys.exit(_USAGE_ERR_CODE)

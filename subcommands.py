@@ -13,8 +13,7 @@ import os
 import cmdline
 
 app = cmdline.App(usage_msg=__doc__,
-                  arg_types={'reps': int},
-                  output_alg=cmdline.print_str)
+                  arg_types={'reps': int})
 
 # Module variables.
 panic = False
@@ -31,13 +30,13 @@ def stub():
 
 @app.command
 def foobar(reps=1):
-    """Return 'foobar'.
+    """Print 'foobar'.
 
-    reps -- number of repetitions of foobar to return.
+    reps -- number of repetitions of foobar to print.
 
     """
 
-    return 'foobar' * reps
+    print 'foobar' * reps
 
 # The default short name of 'y' for 'yell' is better. We use 'u' only to test
 # the short name override feature.
@@ -45,7 +44,7 @@ def foobar(reps=1):
              short_names={'yell': 'u'})
 def greet(greeting='Hello, world', punctuation='!', reps=1, sep=os.linesep,
           yell=False):
-    """Return a simple greeting.
+    """Print a simple greeting.
 
     It is fairly conventional to have some extra commentary, unless you
     really don't need it, so I'm going to include it here.
@@ -101,7 +100,7 @@ def greet(greeting='Hello, world', punctuation='!', reps=1, sep=os.linesep,
 
     result = sep.join([result] * reps)
 
-    return result
+    print result
 
 if __name__ == '__main__':
     app.run()
