@@ -210,25 +210,24 @@ and help is available for specific commands::
 Command Return Values
 ---------------------
 
-If cmdline.py understands a function's return value, it uses it to set the
-program exit status. Otherwise, it ignores it.
+If cmdline.py understands a command's return value, it sets the program's exit
+status. Otherwise, it ignores it.
 
-If a command's function returns None (the default), cmdline.py
-will set the exit status to 0.
+If a command returns None, cmdline.py will set the exit status to 0.
 
-If a command's function returns an integer from 0 to 127, cmdline.py will set
-the exit status to that value.
+If a command returns an integer from 0 to 127, cmdline.py will set the exit
+status to that value.
 
-Note that if user input is recognizably invalid, a cmdline.py App will set the
-program's exit status to 2 (which the Python docs claim is the usual Unix move
-for invalid syntax: http://docs.python.org/library/sys.html#sys.exit).
+When cmdline.py detects invalid input, it sets the program's exit status to 2,
+as the Python docs say that is the usual move for Unix programs when they
+catch invalid syntax: http://docs.python.org/library/sys.html#sys.exit).
 
 
 Other Features
 --------------
 
 There are a few other features worth mentioning. The code has pretty decent
-docstrings, so reading through those should give you a good overview of what
+docstrings, so reading through those should give you a decent overview of what
 you can do. A few highlights follow.
 
 By default, input values are strings. Sometimes you don't want that. The App
