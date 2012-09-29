@@ -17,13 +17,6 @@ import sys
 import textwrap
 import types
 
-# Python 2.7 has OrderedDict; for 2.4 - 2.6, we fall back to this
-# implementation.
-try:
-    from collections import OrderedDict
-except ImportError:
-    from ordereddict import OrderedDict
-
 # Module constants.
 # According to the Python docs, command line syntax errors usually yield an
 # exit code of 2, so that's what I'm doing. I'm not sure this is the best
