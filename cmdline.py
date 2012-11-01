@@ -1024,12 +1024,13 @@ class App(object):
         except UnknownCommand as exc:
             # We want to display the available commands in this case, so we
             # don't populate err_msg.
-            if exc.input is None:
-                msg = 'You must enter a command.'
-            else:
-                msg = "'%s' is not a known command." % exc.input
+            msg = None
+            if exc.input is not None:
+                msg = "ERROR: '%s' is not a known command." % exc.input
 
-            print >> sys.stderr, 'ERROR: %s' % msg
+            if msg is not None:
+                print >> sys.stderr, 'ERROR: %s' % msg
+
             print >> sys.stderr, self.get_avail_cmds()
         except BadArgCount as exc:
             arg_str = 'arg' if exc.max_argc is 1 else 'args'
