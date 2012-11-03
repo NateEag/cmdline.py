@@ -463,7 +463,7 @@ class Command(object):
 class App(object):
     """A command-line application."""
 
-    def __init__(self, usage_msg=None, arg_types={}):
+    def __init__(self, usage_msg=None, arg_types={}, opt_args=[]):
         """Create an App.
 
         usage_msg -- optional string explaining this App to an end-user.
@@ -475,11 +475,15 @@ class App(object):
                      take a string as input and either return an object
                      of the desired type or raise a ValueError.
 
+        opt_args -- optional list of arg names that should be treated as
+                    optional args instead of options.
+
         """
 
         self.cmd = None
 
         self.arg_types = arg_types
+        self.opt_args = opt_args
         self.main_cmd = None
         self.commands = {}
         self.name = None
@@ -539,6 +543,11 @@ class App(object):
         if self._dec_arg_types is not None:
             arg_types.update(self._dec_arg_types)
 
+        if len(self.opt_args) > 0:
+            if opt_args is not None:
+                opt_args.extend(self.opt_args)
+            else:
+                opt_args = self.opt_args[:]
         cmd = Command.from_func(func, short_names, opt_args, arg_types,
                                 usage_msg)
 
@@ -672,7 +681,7 @@ class App(object):
             # Decorate func and return the result.
             return self._cmd_decorator(func)
 
-    def make_global_opts(self, module_globals, arg_types):
+    def make_global_opts(self, module_globals, arg_types={}):
         """Set up our global options from module_globals."""
 
         self.module_globals = module_globals
@@ -697,7 +706,7 @@ class App(object):
     def show_help(self, cmd_name=None):
         """Display docs for this app.
 
-        cmd_name -- optional subcommand to show help for.
+        cmd_name -- optional subcommand to show docs for.
 
         """
 
@@ -753,7 +762,7 @@ class App(object):
             help_msg += sep.join(usage_paras)
 
         input_summaries = []
-        if cmd.min_argc > 0:
+        if cmd.max_argc > 0:
             arg_summaries = []
             for arg in cmd.args:
                 example += ' <%s>' % arg.name

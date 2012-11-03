@@ -71,3 +71,7 @@
 2012-09-29 Added support for status exit codes.
 
 2012-09-29 Remove OrderedDict from the repo, as it has not been used in a while.
+
+2012-11-03 Fixed a bug where optional args were not displayed in usage messages.
+
+2012-11-03 Added an opt_args param to the App constructor.
