@@ -1,4 +1,12 @@
-2012-05-07 Decide how to avoid raising InvalidShortName exceptions when multiple func args begin with the same letter. We could make shortnaming an "only if you asked" feature, or not give short names when they would collide (perhaps defaulting to first available character in the varname).
+2012-05-16 Rewrite global options to be explicitly set, rather than inferred from globals(). The latter is just too implicit, and makes you have to think about where in your code you declare global options - that's bad.
+
+2012-09-10 Add support for global options in help messages. Probably done by parsing App()'s usage_msg arg for param summaries and correlating them with specified global options.
+
+2012-05-07 Avoid throwing InvalidShortName exceptions when multiple func args begin with the same letter. By default, we choose short names to avoid conflicts, by passing an optional list of "taken" short names, and having Commands choose the shortnames for their Options, rather than letting options do it internally.
+
+2012-11-04 Decide whether long option names should be case-insensitive (longstanding tradition says short ones are not) and make it so.
+
+2012-09-11 Write a test suite.
 
 2012-08-22 Try to format usage message for device it's being displayed on (i.e., try to detect terminal width).
 
@@ -7,10 +15,6 @@
 2012-09-14 Fix bug where main command is referred to by command name when a BadArgCount is caught. This is one of several warts that suggests main commands might be a subclass - they need more data than regular ones.
 
 2012-09-14 Support portable option prefixes - Windows uses '/', for instance.
-
-2012-05-16 See if there's a cleaner/more flexible way to support global options. My current approach feels clunky - maybe I shouldn't be assuming we'll only be passed globals()?
-
-2012-09-10 Add support for global options in help messages. Probably done by parsing App()'s usage_msg arg for param summaries and correlating them with specified global options.
 
 2012-05-04 Support config files.
 
@@ -25,8 +29,6 @@
 2012-09-11 Consider adding opt-in type inference for options; where there's a default value, the default probably tells us what type that option should be. Getting a callable to convert to that type might be tricky, but so it goes. Could be a dumb idea.
 
 2012-09-11 Consider whether there's any validity to type guessing. "1" as an input looks like it should be an int, so we can just make it that, without being explicitly told "This should be an int." It's probably too implicit, but I wonder if there are cases where it might be useful, and don't want to lose the idea until I've had a chance to think about it more.
-
-2012-09-11 Write a test suite, once I've managed to get some feedback about what features should be enhanced and which ones should be booted violently.
 
 2012-09-10 Add help paging of some kind. A long help document makes you scroll to read, which is annoying.
 
