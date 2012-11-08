@@ -561,7 +561,7 @@ class App(object):
         if 'help' not in self.commands:
             # Add a 'help' command.
             help_cmd = Command.from_func(self.show_help, name='help',
-                                         opt_args=['cmd_name'])
+                                         opt_args=['cmd'])
             self.commands[help_cmd.name] = help_cmd
 
         # Empty state-transfer fields for next call.
@@ -703,10 +703,10 @@ class App(object):
                 opt = Option(name, None, value, type_converter=type_converter)
                 self.global_opts[name] = opt
 
-    def show_help(self, cmd_name=None):
-        """Display docs for this app.
+    def show_help(self, cmd=None):
+        """Display help for this app.
 
-        cmd_name -- optional subcommand to show docs for.
+        cmd -- optional string specifying a subcommand.
 
         """
 
@@ -714,7 +714,7 @@ class App(object):
         # environment, not hardcoded.
         width = 70
 
-        if cmd_name is None:
+        if cmd is None:
             cmd = self.main_cmd
 
             if self.usage_msg is not None:
@@ -725,9 +725,9 @@ class App(object):
                 print self.get_avail_cmds()
                 return
         else:
-            cmd = self.commands.get(cmd_name)
+            cmd = self.commands.get(cmd)
             if cmd is None:
-                raise UnknownCommand(cmd_name)
+                raise UnknownCommand(cmd)
 
         app_name = self.name
         if cmd is not None and cmd is not self.main_cmd:
