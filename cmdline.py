@@ -686,6 +686,10 @@ class App(object):
 
         self.module_globals = module_globals
 
+        # GRIPE Since it is now being used in more than one class,
+        # _get_param_summaries() probably shouldn't live in Command.
+        summaries = Command._get_param_summaries(self.usage_msg)
+
         # Store only the module's public global variables as options.
         # GRIPE This is the step that's likely to go wrong, and is relatively
         # implicit. Is this actually a good idea? Should we make them explicitly
@@ -700,7 +704,9 @@ class App(object):
                 # GRIPE Also, this code is very ugly.
                 name = key.replace('_', '-')
                 type_converter = arg_types.get(key)
-                opt = Option(name, None, value, type_converter=type_converter)
+                summary = None if key not in summaries else summaries[key]
+                opt = Option(name, summary, value,
+                             type_converter=type_converter)
                 self.global_opts[name] = opt
 
     def show_help(self, cmd=None):

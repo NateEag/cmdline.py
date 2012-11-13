@@ -1,6 +1,6 @@
-2012-05-16 Rewrite global options to be explicitly set, rather than inferred from globals(). The latter is just too implicit, and makes you have to think about where in your code you declare global options - that's bad.
+2012-09-10 Add support for global options in help messages.
 
-2012-09-10 Add support for global options in help messages. Probably done by parsing App()'s usage_msg arg for param summaries and correlating them with specified global options.
+2012-05-16 Rewrite global options to be explicitly set, rather than inferred from globals(). The latter is just too implicit, and makes you have to think about where in your code you declare global options - that's bad.
 
 2012-05-07 Avoid throwing InvalidShortName exceptions when multiple func args begin with the same letter. By default, we choose short names to avoid conflicts, by passing an optional list of "taken" short names, and having Commands choose the shortnames for their Options, rather than letting options do it internally.
 
