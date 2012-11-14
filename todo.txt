@@ -1,4 +1,8 @@
+2012-11-13 Come up with a way to include info on global options but not have them in the default help message.
+
 2012-09-10 Add support for global options in help messages.
+
+2012-11-13 Consider adding a 'func_name' or 'arg_name' property to Options (and Args?). It would save a few .replace('-', '_') dances throughout the code. The problem is coming up with a name that enhances readability rather than the opposite...
 
 2012-05-16 Rewrite global options to be explicitly set, rather than inferred from globals(). The latter is just too implicit, and makes you have to think about where in your code you declare global options - that's bad.
 

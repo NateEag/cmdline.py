@@ -239,12 +239,7 @@ docstrings cover how it works, so do::
 
 to learn about it.
 
-There is tentative support for global options - ones that can be set for all
-commands. It's ugly, and such options are not documented by the help command,
-but it could be useful for programs with subcommands that have common options
-(think of ``--git-dir`` in git). It expects you to pass globals() to it, and
-tries not to treat functions, classes, or modules as options. It looks like
-this::
+There is tentative support for global options - ones that can be set for all commands. It's ugly, but it could be useful for programs with subcommands that have common options (think of ``--git-dir`` in git). It expects you to pass globals() to it, and tries not to treat functions, classes, or modules as options. It looks like this::
 
   app = cmdline.App(usage_msg=__doc__)
 

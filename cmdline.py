@@ -434,7 +434,9 @@ class Command(object):
         for arg in arg_list:
             summary = summaries.get(arg)
             type_converter = arg_types.get(arg)
-            args.append(Arg(arg, summary, type_converter=type_converter))
+            arg_name = arg.replace('_', '-')
+
+            args.append(Arg(arg_name, summary, type_converter=type_converter))
 
         # Build optional arg list and options dict.
         opts = {}
@@ -450,12 +452,15 @@ class Command(object):
             if arg in opt_args:
                 pos = opt_args.index(arg)
                 type_converter = arg_types.get(arg)
-                opt_args[pos] = Arg(arg, summary, defaults[i], type_converter)
+                arg_name = arg.replace('_', '-')
+                opt_args[pos] = Arg(arg_name, summary, defaults[i],
+                                    type_converter)
 
                 continue
 
             type_converter = arg_types.get(arg)
-            opts[arg] = Option(arg, summary, defaults[i], short_name,
+            opt_name = arg.replace('_', '-')
+            opts[arg] = Option(opt_name, summary, defaults[i], short_name,
                                type_converter)
 
         return cls(func, args, opt_args, opts, arg_types, usage_msg, name)
@@ -709,19 +714,45 @@ class App(object):
                              type_converter=type_converter)
                 self.global_opts[name] = opt
 
-    def show_help(self, cmd=None):
+    @classmethod
+    def _format_opt_summaries(self, opts):
+        """Return a formatted list of option summaries.
+
+        Meant as a helper method for self.show_help, really.
+
+        opts -- a dict of Options, with option name as the key.
+
+        """
+
+        opt_summaries = []
+        for opt in opts.values():
+            summary = opt.format_summary()
+            if summary is not None:
+                opt_summaries.append(summary)
+
+        return opt_summaries
+
+    def show_help(self, cmd=None, show_global_opts=False):
         """Display help for this app.
 
         cmd -- optional string specifying a subcommand.
+        show_global_opts -- optional flag controlling whether we display
+                            global options in output. Defaults to False.
 
         """
 
         # DEBUG This should be calculated based on the App's current
         # environment, not hardcoded.
         width = 70
+        sep = os.linesep * 2
 
         if cmd is None:
             cmd = self.main_cmd
+
+            # In this case, we want to show global options. This is technically
+            # a violation of the flag's default state, but is probably better
+            # UI.
+            show_global_opts = True
 
             if self.usage_msg is not None:
                 print self.usage_msg
@@ -729,6 +760,15 @@ class App(object):
 
             if self.has_subcmds and cmd is None:
                 print self.get_avail_cmds()
+
+                # GRIPE Ugly - explicitly dumping global opts in this case,
+                # even though we're not showing any other info of this sort.
+                if show_global_opts:
+                    opt_summaries = self._format_opt_summaries(self.global_opts)
+                    if len(opt_summaries) > 0:
+                        opt_summaries.insert(0, 'Global Options:')
+                        print
+                        print sep.join(opt_summaries)
                 return
         else:
             cmd = self.commands.get(cmd)
@@ -764,7 +804,6 @@ class App(object):
 
                 indent_level = 0
 
-            sep = os.linesep * 2
             help_msg += sep.join(usage_paras)
 
         input_summaries = []
@@ -787,17 +826,17 @@ class App(object):
                 arg_summaries.insert(0, 'Arguments:')
                 input_summaries.extend(arg_summaries)
 
-        if len(cmd.opts) > 0:
-            opt_summaries = []
-            for opt in cmd.opts.values():
-                summary = opt.format_summary()
-                if summary is not None:
-                    opt_summaries.append(summary)
+        opt_summaries = self._format_opt_summaries(cmd.opts)
+        if len(opt_summaries) > 0:
+            # GRIPE It might be a nice touch to distinguish between
+            # options and flags.
+            opt_summaries.insert(0, 'Options:')
+            input_summaries.extend(opt_summaries)
 
+        if show_global_opts:
+            opt_summaries = self._format_opt_summaries(self.global_opts)
             if len(opt_summaries) > 0:
-                # GRIPE It might be a nice touch to distinguish between
-                # options and flags.
-                opt_summaries.insert(0, 'Options:')
+                opt_summaries.insert(0, 'Global Options:')
                 input_summaries.extend(opt_summaries)
 
         if help_msg:
@@ -899,7 +938,8 @@ class App(object):
                 elif val == '':
                     val = inputs.pop(0)
 
-                opts[opt.name] = opt.convert_type(val)
+                opt_name = opt.name.replace('-', '_')
+                opts[opt_name] = opt.convert_type(val)
             elif item.startswith('-') and not literal_inputs:
                 # item is one or more short option names, possibly followed by
                 # a value. All but the last short name must be flags.
@@ -927,7 +967,8 @@ class App(object):
 
                     opt = known_opts[char]
                     if opt.is_flag:
-                        opts[opt.name] = not opt.default
+                        opt_name = opt.name.replace('-', '_')
+                        opts[opt_name] = not opt.default
                     else:
                         last_opt = char
                         val = ''
@@ -937,7 +978,8 @@ class App(object):
                         val = inputs.pop(0)
 
                     last_opt = known_opts[last_opt]
-                    opts[last_opt.name] = last_opt.convert_type(val)
+                    opt_name = last_opt.name.replace('-', '_')
+                    opts[opt_name] = last_opt.convert_type(val)
             else:
                 args_len = len(args)
                 if (cmd is self.main_cmd and self.has_subcmds and
