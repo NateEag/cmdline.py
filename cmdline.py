@@ -23,6 +23,10 @@ import types
 # value to use. http://docs.python.org/library/sys.html#sys.exit
 _USAGE_ERR_CODE = 2
 
+# Used to recognize PEP 257-style function arg descriptions in
+# docstrings.
+_PEP_257_RE = re.compile(r'^(\w+) --')
+
 class InvalidInput(Exception):
     """Indicates that invalid input was given.
 
@@ -119,6 +123,117 @@ class InvalidShortName(InvalidInput):
         self.opt_one = opt_one
         self.opt_two = opt_two
 
+def _get_usage_msg(docstr):
+    """Parse `docstr` and return a usage message.
+
+    Mostly, this tries to guess at what point a docstring stops
+    being applicable to a command and returns everything before
+    that.
+
+    It assumes a docstring is no longer explaining the command in
+    general once it has seen a parameter description or a doctest
+    block.
+
+    DEBUG This currently munges indented blocks horribly. That
+    should be fixed, as many tools have reason to display codeish
+    examples. The ugly bit is that it needs to deal with tabs,
+    not just spaces.
+
+    """
+
+    if docstr is None:
+        return
+
+    paragraphs = []
+    for para in docstr.split('\n' * 2):
+        # GRIPE This is a lot like the code for getting param summaries -
+        # should they be merged for DRYness, or would that hurt readability
+        # too much?
+        match = _PEP_257_RE.match(para)
+        if para.startswith('>>>') or (para.startswith('@param') or
+                                      para.startswith(':param') or
+                                      match is not None):
+            break
+        else:
+            paragraphs.append(para)
+
+    sep = os.linesep * 2
+
+    return sep.join(paragraphs)
+
+def _get_param_summaries(docstr):
+    """Parse `docstr` and return a dict mapping param => summary.
+
+    It tries to understand three formats for describing params in
+    docstrings:
+
+    * PEP 257:
+        param_name -- A summary of the function parameter, possibly
+                      spanning multiple lines.
+
+                      Or even paragraphs.
+
+    * Sphinx:
+        :param param_name: A summary of the function parameter,
+                           possibly spanning multiple lines.
+
+                           Or even paragraphs.
+
+    * epydoc:
+        @param param_name: A summary of the function parameter,
+                           possibly spanning multiple lines.
+
+                           Or even paragraphs.
+
+    Other formats exist, but these seem to be the major ones, based
+    on an utterly unscientific Google binge.
+
+    """
+
+    summaries = {}
+
+    if docstr is None:
+        return summaries
+
+    param_name = None
+    param_summary = None
+    blank_line_seen = False
+    for line in docstr.splitlines():
+        match = _PEP_257_RE.match(line)
+        if match is not None:
+            param_name = match.groups()[0]
+            remainder = line[match.end():].strip()
+        elif line.startswith('@param') or line.startswith(':param'):
+            next_colon_pos = line.find(':', 7)
+            param_name = line[7:next_colon_pos]
+            remainder = line[next_colon_pos + 1:].strip()
+        elif line != '' and line.lstrip() == line:
+            # This line is not blank, is not indented, and contains no
+            # param name, so the param summary must be finished.
+            param_name = None
+            continue
+
+        if param_name is not None:
+            if remainder is not None:
+                summaries[param_name] = remainder.strip()
+                blank_line_seen = False
+            elif line == '':
+                # Remember this blank line, in case it's part of the
+                # current summary.
+                blank_line_seen = True
+            else:
+                if blank_line_seen:
+                    # This will discard >2 blank lines in a summary,
+                    # but that will probably look better anyway.
+                    summaries[param_name] += os.linesep * 2 + line.strip()
+                    blank_line_seen = False
+                else:
+                    summaries[param_name] += ' ' + line.strip()
+
+        remainder = None
+
+    return summaries
+
 class Arg(object):
     """An argument for a command-line app."""
 
@@ -205,10 +320,6 @@ class Command(object):
 
     """
 
-    # Used to recognize PEP 257-style function arg descriptions in
-    # docstrings.
-    _pep_257_re = re.compile(r'^(\w+) --')
-
     # GRIPE You could argue that __init__ should actually just be
     # from_func. I'm not sure if you'd be right or not.
     def __init__(self, func, args, opt_args, opts, arg_types=None,
@@ -269,119 +380,6 @@ class Command(object):
         return self.func(*args, **kwargs)
 
     @classmethod
-    def _get_param_summaries(cls, docstr):
-        """Parse `docstr` and return a dict mapping param => summary.
-
-        It tries to understand three formats for describing params in
-        docstrings:
-
-        * PEP 257:
-            param_name -- A summary of the function parameter, possibly
-                          spanning multiple lines.
-
-                          Or even paragraphs.
-
-        * Sphinx:
-            :param param_name: A summary of the function parameter,
-                               possibly spanning multiple lines.
-
-                               Or even paragraphs.
-
-        * epydoc:
-            @param param_name: A summary of the function parameter,
-                               possibly spanning multiple lines.
-
-                               Or even paragraphs.
-
-        Other formats exist, but these seem to be the major ones, based
-        on an utterly unscientific Google binge.
-
-        """
-
-        summaries = {}
-
-        if docstr is None:
-            return summaries
-
-        param_name = None
-        param_summary = None
-        blank_line_seen = False
-        for line in docstr.splitlines():
-            match = cls._pep_257_re.match(line)
-            if match is not None:
-                param_name = match.groups()[0]
-                remainder = line[match.end():].strip()
-            elif line.startswith('@param') or line.startswith(':param'):
-                next_colon_pos = line.find(':', 7)
-                param_name = line[7:next_colon_pos]
-                remainder = line[next_colon_pos + 1:].strip()
-            elif line != '' and line.lstrip() == line:
-                # This line is not blank, is not indented, and contains no
-                # param name, so the param summary must be finished.
-                param_name = None
-                continue
-
-            if param_name is not None:
-                if remainder is not None:
-                    summaries[param_name] = remainder.strip()
-                    blank_line_seen = False
-                elif line == '':
-                    # Remember this blank line, in case it's part of the
-                    # current summary.
-                    blank_line_seen = True
-                else:
-                    if blank_line_seen:
-                        # This will discard >2 blank lines in a summary,
-                        # but that will probably look better anyway.
-                        summaries[param_name] += os.linesep * 2 + line.strip()
-                        blank_line_seen = False
-                    else:
-                        summaries[param_name] += ' ' + line.strip()
-
-            remainder = None
-
-        return summaries
-
-    @classmethod
-    def _get_usage_msg(cls, docstr):
-        """Parse `docstr` and return a usage message.
-
-        Mostly, this tries to guess at what point a docstring stops
-        being applicable to a command and returns everything before
-        that.
-
-        It assumes a docstring is no longer explaining the command in
-        general once it has seen a parameter description or a doctest
-        block.
-
-        DEBUG This currently munges indented blocks horribly. That
-        should be fixed, as many tools have reason to display codeish
-        examples. The ugly bit is that it needs to deal with tabs,
-        not just spaces.
-
-        """
-
-        if docstr is None:
-            return
-
-        paragraphs = []
-        for para in docstr.split('\n' * 2):
-            # GRIPE This is a lot like the code for getting param summaries -
-            # should they be merged for DRYness, or would that hurt readability
-            # too much?
-            match = cls._pep_257_re.match(para)
-            if para.startswith('>>>') or (para.startswith('@param') or
-                                          para.startswith(':param') or
-                                          match is not None):
-                break
-            else:
-                paragraphs.append(para)
-
-        sep = os.linesep * 2
-
-        return sep.join(paragraphs)
-
-    @classmethod
     def from_func(cls, func, short_names=None, opt_args=None, arg_types=None,
                   usage_msg=None, name=None):
         """Get an instance of Command by introspecting func.
@@ -415,9 +413,9 @@ class Command(object):
         if docstr is not None:
             # GRIPE We should probably let you pass param summaries from
             # outside.
-            summaries = cls._get_param_summaries(docstr)
+            summaries = _get_param_summaries(docstr)
             if usage_msg is None:
-                usage_msg = cls._get_usage_msg(docstr)
+                usage_msg = _get_usage_msg(docstr)
 
         # Inspect func for hard data.
         func_args, varargs, varkw, defaults = inspect.getargspec(func)
@@ -476,6 +474,9 @@ class App(object):
                      command-line module's usage statement, so this is
                      usually __doc__.
 
+                     Anything that looks like a parameter description
+                     will be removed.
+
         arg_types -- optional dict mapping arg names to callables that
                      take a string as input and either return an object
                      of the desired type or raise a ValueError.
@@ -493,7 +494,11 @@ class App(object):
         self.commands = {}
         self.name = None
         self.argv = []
-        self.usage_msg = usage_msg if usage_msg is None else usage_msg.strip()
+
+        if usage_msg is not None:
+            usage_msg = _get_usage_msg(usage_msg).strip()
+
+        self.usage_msg = usage_msg
 
         # Stores the globals dict for whatever module this app was created in.
         self.module_globals = None
@@ -691,9 +696,7 @@ class App(object):
 
         self.module_globals = module_globals
 
-        # GRIPE Since it is now being used in more than one class,
-        # _get_param_summaries() probably shouldn't live in Command.
-        summaries = Command._get_param_summaries(self.usage_msg)
+        summaries = _get_param_summaries(self.usage_msg)
 
         # Store only the module's public global variables as options.
         # GRIPE This is the step that's likely to go wrong, and is relatively

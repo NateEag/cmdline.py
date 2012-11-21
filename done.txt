@@ -75,3 +75,5 @@
 2012-11-03 Fixed a bug where optional args were not displayed in usage messages.
 
 2012-11-03 Added an opt_args param to the App constructor.
+
+2012-11-21 Removed param summaries from App usage message.
