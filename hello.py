@@ -21,7 +21,7 @@ panic = False
 rand_val = 123
 
 # Create global command options from module settings.
-app.make_global_opts(globals(), arg_types={'rand_val': int})
+app.make_global_opts(globals(), arg_types={'rand_val': int, 'panic': bool})
 
 # The default short name of 'y' for 'yell' is better. We use 'u' only to test
 # the short name override feature.

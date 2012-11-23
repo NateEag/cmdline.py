@@ -691,31 +691,30 @@ class App(object):
             # Decorate func and return the result.
             return self._cmd_decorator(func)
 
-    def make_global_opts(self, module_globals, arg_types={}):
-        """Set up our global options from module_globals."""
+    def make_global_opts(self, module_globals, arg_types):
+        """Set up our global options from module_globals.
+
+        module_globals -- The calling module's __dict__, which is used
+                          to get references to the actual variables.
+                          Best retrieved by calling globals().
+
+        arg_types -- A dict mapping module variable names to type
+                     conversion callables. Module vars will only be
+                     treated as global options if they're in this
+                     dict.
+
+        """
 
         self.module_globals = module_globals
 
         summaries = _get_param_summaries(self.usage_msg)
 
-        # Store only the module's public global variables as options.
-        # GRIPE This is the step that's likely to go wrong, and is relatively
-        # implicit. Is this actually a good idea? Should we make them explicitly
-        # specify global options by name?
-        for key, value in module_globals.items():
-            if (not hasattr(value, '__call__') and
-                type(value) != types.ClassType and
-                type(value) != types.ModuleType and
-                not isinstance(value, App) and
-                not key.startswith('_')):
-                # This is probably a module-level option.
-                # GRIPE Also, this code is very ugly.
-                name = key.replace('_', '-')
-                type_converter = arg_types.get(key)
-                summary = None if key not in summaries else summaries[key]
-                opt = Option(name, summary, value,
-                             type_converter=type_converter)
-                self.global_opts[name] = opt
+        for var_name, type_converter in arg_types.items():
+            name = var_name.replace('_', '-')
+            value = module_globals[var_name]
+            summary = None if var_name not in summaries else summaries[var_name]
+            opt = Option(name, summary, value, type_converter=type_converter)
+            self.global_opts[name] = opt
 
     @classmethod
     def _format_opt_summaries(self, opts):
@@ -941,7 +940,7 @@ class App(object):
                 elif val == '':
                     val = inputs.pop(0)
 
-                opt_name = opt.name.replace('-', '_')
+                opt_name = opt.name
                 opts[opt_name] = opt.convert_type(val)
             elif item.startswith('-') and not literal_inputs:
                 # item is one or more short option names, possibly followed by
@@ -970,7 +969,7 @@ class App(object):
 
                     opt = known_opts[char]
                     if opt.is_flag:
-                        opt_name = opt.name.replace('-', '_')
+                        opt_name = opt.name
                         opts[opt_name] = not opt.default
                     else:
                         last_opt = char
@@ -981,7 +980,7 @@ class App(object):
                         val = inputs.pop(0)
 
                     last_opt = known_opts[last_opt]
-                    opt_name = last_opt.name.replace('-', '_')
+                    opt_name = last_opt.name
                     opts[opt_name] = last_opt.convert_type(val)
             else:
                 args_len = len(args)
@@ -1046,6 +1045,12 @@ class App(object):
             var_name = name.replace('-', '_')
 
             self.module_globals[var_name] = opt.convert_type(val)
+
+        # Convert option names into variable names for use as **kwargs.
+        for opt_name, value in opts.items():
+            var_name = opt_name.replace('-', '_')
+            del opts[opt_name]
+            opts[var_name] = value
 
         return cmd.run(args, opts)
 

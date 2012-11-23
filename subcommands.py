@@ -21,7 +21,9 @@ dummy = False
 rand_val = 123
 
 # Create global command options from module settings.
-app.make_global_opts(globals(), arg_types={'rand_val': int})
+app.make_global_opts(globals(), arg_types={'rand_val': int,
+                                           'dummy': bool,
+                                           'panic': bool})
 
 # Set up a few commands.
 @app.command(usage_msg='Do absolutely nothing.')
