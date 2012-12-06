@@ -2,11 +2,13 @@
 
 2012-05-16 Rewrite global options to be explicitly set, rather than inferred from globals(). The latter is just too implicit, and makes you have to think about where in your code you declare global options - that's bad.
 
+2012-12-06 Support passing an option multiple times. An arg that defaults to a list would indicate such a thing?
+
 2012-05-07 Avoid throwing InvalidShortName exceptions when multiple func args begin with the same letter. By default, we choose short names to avoid conflicts, by passing an optional list of "taken" short names, and having Commands choose the shortnames for their Options, rather than letting options do it internally.
 
 2012-11-04 Decide whether long option names should be case-insensitive (longstanding tradition says short ones are not) and make it so.
 
-2012-09-11 Write a test suite.
+2012-09-11 Write a test suite. It looks like ScriptTest might be a good candidate for so doing. There's also Cram.
 
 2012-08-22 Try to format usage message for device it's being displayed on (i.e., try to detect terminal width).
 
