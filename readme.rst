@@ -4,6 +4,13 @@ cmdline.py
 
 A simple module for writing command-line programs in Python.
 
+N.B.: I expect to deprecate this module in favor of
+`docopt <http://docopt.org>`__, which looks like a simpler, cleaner way of
+defining command-line interfaces. I wish I had thought of it.
+
+Once I've tried docopt, I'll update this project with a deprecation or further
+work as appropriate.
+
 A minimal example
 -----------------
 ::
